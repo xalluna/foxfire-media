@@ -15,11 +15,19 @@ public sealed class TusClient(HttpClient http, string uploadToken)
         return (await response.Content.ReadFromJsonAsync<UploadTicket>())!;
     }
 
+    /// <summary>When set, requests carry this Origin header, as a browser's would.</summary>
+    public string? Origin { get; init; }
+
     private HttpRequestMessage Request(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);
         request.Headers.Add("Tus-Resumable", "1.0.0");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken);
+        if (Origin is not null)
+        {
+            request.Headers.Add("Origin", Origin);
+        }
+
         return request;
     }
 

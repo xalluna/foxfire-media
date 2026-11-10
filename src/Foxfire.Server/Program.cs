@@ -43,7 +43,7 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ApiKeyGuardMiddleware>();
-app.UseUnlimitedBodyForUploads();
+app.UseUploadEndpointMiddleware();
 app.UseAuthentication();
 app.UseAuthorization();
 

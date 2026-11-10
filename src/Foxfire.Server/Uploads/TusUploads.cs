@@ -34,6 +34,7 @@ public static class TusUploads
         services.AddOptions<UploadOptions>().BindConfiguration(UploadOptions.Section);
         services.AddSingleton<PublicUrls>();
         services.AddSingleton<DiskSpaceGuard>();
+        services.AddSingleton<UploadCors>();
         services.AddScoped<UploadGrants>();
         services.AddScoped<UploadFailures>();
         services.AddSingleton(sp => new TusDiskStore(sp.GetRequiredService<IMediaStorage>().UploadsDirectory, deletePartialFilesOnConcat: true));
@@ -65,18 +66,25 @@ public static class TusUploads
         return endpoints.MapTus(UploadGrants.TusPath, _ => Task.FromResult(configuration));
     }
 
-    /// <summary>Uploads are large; lift Kestrel's default request body limit for the tus endpoint only.</summary>
-    public static IApplicationBuilder UseUnlimitedBodyForUploads(this IApplicationBuilder app) =>
-        app.Use((context, next) =>
-        {
-            if (context.Request.Path.StartsWithSegments(UploadGrants.TusPath) &&
-                context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+    /// <summary>
+    /// Upload-path middleware: CORS for browser uploads, and no Kestrel body-size limit
+    /// (uploads are large; tus enforces each file's declared length itself).
+    /// </summary>
+    public static IApplicationBuilder UseUploadEndpointMiddleware(this IApplicationBuilder app)
+    {
+        var cors = app.ApplicationServices.GetRequiredService<UploadCors>();
+        return app.UseWhen(
+            context => context.Request.Path.StartsWithSegments(UploadGrants.TusPath),
+            branch => branch.Use(async (context, next) =>
             {
-                limit.MaxRequestBodySize = null;
-            }
+                if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+                {
+                    limit.MaxRequestBodySize = null;
+                }
 
-            return next(context);
-        });
+                await cors.HandleAsync(context, next);
+            }));
+    }
 
     private static string? BearerToken(HttpContext context)
     {
@@ -102,12 +110,29 @@ public static class TusUploads
                     return;
                 }
 
+                if (!await OriginAllowedAsync(services, ctx.HttpContext, createClaims.ApplicationId, ctx.CancellationToken))
+                {
+                    ctx.FailRequest(HttpStatusCode.Forbidden, "This origin may not upload for this application.");
+                    return;
+                }
+
                 ctx.HttpContext.Items[ClaimsItem] = createClaims;
                 return;
 
             case IntentType.WriteFile or IntentType.GetFileInfo or IntentType.DeleteFile:
-                if (!tokens.TryValidate(TokenPurpose.Upload, token, ignoreExpiry: true, out var claims) ||
-                    !await IsActiveUploadAsync(services, claims, ctx.FileId, touch: ctx.Intent == IntentType.WriteFile, ctx.CancellationToken))
+                if (!tokens.TryValidate(TokenPurpose.Upload, token, ignoreExpiry: true, out var claims))
+                {
+                    ctx.FailRequest(HttpStatusCode.NotFound);
+                    return;
+                }
+
+                if (!await OriginAllowedAsync(services, ctx.HttpContext, claims.ApplicationId, ctx.CancellationToken))
+                {
+                    ctx.FailRequest(HttpStatusCode.Forbidden, "This origin may not upload for this application.");
+                    return;
+                }
+
+                if (!await IsActiveUploadAsync(services, claims, ctx.FileId, touch: ctx.Intent == IntentType.WriteFile, ctx.CancellationToken))
                 {
                     ctx.FailRequest(HttpStatusCode.NotFound);
                 }
@@ -118,6 +143,35 @@ public static class TusUploads
                 ctx.FailRequest(HttpStatusCode.BadRequest, "Unsupported upload operation.");
                 return;
         }
+    }
+
+    /// <summary>
+    /// Browser requests (which carry Origin) must come from the token's application, or from
+    /// FoxfireMedia itself (admin UI). Requests without Origin are server-to-server and allowed.
+    /// </summary>
+    private static async Task<bool> OriginAllowedAsync(IServiceProvider services, HttpContext http, Guid applicationId, CancellationToken ct)
+    {
+        if (!http.Request.Headers.ContainsKey("Origin"))
+        {
+            return true;
+        }
+
+        var origin = UploadCors.RequestOrigin(http);
+        if (origin is null)
+        {
+            return false;
+        }
+
+        if (origin == services.GetRequiredService<UploadCors>().OwnOrigin)
+        {
+            return true;
+        }
+
+        var origins = await services.GetRequiredService<FoxfireDbContext>().Set<Application>()
+            .Where(a => a.Id == applicationId)
+            .Select(a => a.AllowedOrigins)
+            .SingleOrDefaultAsync(ct);
+        return origins?.Contains(origin) == true;
     }
 
     private static async Task<bool> IsActiveUploadAsync(IServiceProvider services, TokenClaims claims, string fileId, bool touch, CancellationToken ct)
