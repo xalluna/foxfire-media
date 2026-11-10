@@ -75,7 +75,9 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     throw await errorFrom(response);
   }
 
-  return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+  // 201/202/204 may carry no body.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export function formatBytes(bytes: number): string {

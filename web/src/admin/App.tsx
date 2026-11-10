@@ -3,9 +3,10 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './auth';
 import { Layout } from './Layout';
 import { LoginPage } from './pages/LoginPage';
+import { AdminsPage } from './pages/AdminsPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { LibraryPage } from './pages/LibraryPage';
-import { Placeholder } from './pages/Placeholder';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { ProcessingPage } from './pages/ProcessingPage';
 import { StoragePage } from './pages/StoragePage';
 import { UploadPage } from './pages/UploadPage';
@@ -42,8 +43,8 @@ export function App() {
             <Route path="processing" element={<ProcessingPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="storage" element={<StoragePage />} />
-            <Route path="admins" element={<Placeholder title="Admins" />} />
-            <Route path="*" element={<Placeholder title="Not found" />} />
+            <Route path="admins" element={<AdminsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -35,6 +35,24 @@ in `.env` before building.
 Media lives in `/data/media`. Bind-mount a dedicated disk with `MEDIA_PATH=/mnt/media`, so the
 admin console's free-space figure describes that disk.
 
+### Admin console
+
+Open `/admin`. The first admin comes from `Admin__BootstrapUsername` / `Admin__BootstrapPassword`,
+and is created only while no admin exists. Sign in, then add the rest of your admins on the
+**Admins** page.
+
+If you are locked out, set `Admin__ResetBootstrapPassword=true` for one restart. This resets the
+bootstrap admin's password to the configured value.
+
+| Page | What it does |
+|---|---|
+| **Library** / **Watch** | Browse and search every app's videos. Play, edit, re-process from the kept original, or delete. |
+| **Upload** | Upload on behalf of an application. Uploads are resumable and in 50 MB chunks. |
+| **Processing** | The job queue, with progress and errors. |
+| **Applications** | Each app's usage and webhook delivery log. Send a test event, resend a delivery, revoke all outstanding links, or purge an app that was removed from config. |
+| **Storage** | Free space on the media disk, usage per app, the largest videos, and the consistency check (orphans and missing files). |
+| **Admins** | Add or remove admins, and change your own password (this ends your other sessions). |
+
 ## Configuration
 
 ### Applications
