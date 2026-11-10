@@ -8,6 +8,7 @@ using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
 using Foxfire.Server.Uploads;
 using Foxfire.Server.Videos;
+using Foxfire.Server.Webhooks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -31,6 +32,7 @@ builder.Services.AddFoxfireTokens();
 builder.Services.AddFoxfireUploads();
 builder.Services.AddFoxfireMedia();
 builder.Services.AddFoxfireProcessing();
+builder.Services.AddFoxfireWebhooks();
 
 var app = builder.Build();
 

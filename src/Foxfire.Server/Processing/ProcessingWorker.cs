@@ -1,8 +1,11 @@
+using System.Linq.Expressions;
 using Foxfire.Server.Data;
 using Foxfire.Server.Media;
 using Foxfire.Server.Storage;
 using Foxfire.Server.Videos;
+using Foxfire.Server.Webhooks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.Options;
 
 namespace Foxfire.Server.Processing;
@@ -96,11 +99,11 @@ public sealed partial class ProcessingWorker(
         }
 
         var job = await db.Set<ProcessingJob>().AsNoTracking().SingleAsync(j => j.Id == claimed[0], stoppingToken);
-        await RunJobAsync(db, job, stoppingToken);
+        await RunJobAsync(db, scope.ServiceProvider.GetRequiredService<WebhookEvents>(), job, stoppingToken);
         return true;
     }
 
-    private async Task RunJobAsync(FoxfireDbContext db, ProcessingJob job, CancellationToken stoppingToken)
+    private async Task RunJobAsync(FoxfireDbContext db, WebhookEvents events, ProcessingJob job, CancellationToken stoppingToken)
     {
         var settings = options.Value;
         var videoId = job.VideoId;
@@ -110,21 +113,23 @@ public sealed partial class ProcessingWorker(
             // Every earlier attempt was interrupted (crash, OOM kill, power loss) before it could finish.
             const string message = "Processing was interrupted repeatedly and has been stopped.";
             await FinishJobAsync(db, job.Id, JobStatus.Failed, message);
-            await db.Set<Video>().Where(v => v.Id == videoId && (v.Status == VideoStatus.Queued || v.Status == VideoStatus.Processing))
-                .ExecuteUpdateAsync(s => s.SetProperty(v => v.Status, VideoStatus.Failed).SetProperty(v => v.ErrorMessage, message), CancellationToken.None);
+            await TransitionAsync(db, events, videoId, v => v.Status == VideoStatus.Queued || v.Status == VideoStatus.Processing,
+                s => s.SetProperty(v => v.Status, VideoStatus.Failed).SetProperty(v => v.ErrorMessage, message).SetProperty(v => v.UpdatedAt, time.GetUtcNow()),
+                WebhookEventTypes.VideoFailed);
             return;
         }
 
-        var started = await db.Set<Video>()
-            .Where(v => v.Id == videoId && (v.Status == VideoStatus.Queued || v.Status == VideoStatus.Processing))
-            .ExecuteUpdateAsync(s => s.SetProperty(v => v.Status, VideoStatus.Processing).SetProperty(v => v.UpdatedAt, time.GetUtcNow()), stoppingToken);
+        // Announce "processing" once per job, not on every retry.
+        var started = await TransitionAsync(db, events, videoId, v => v.Status == VideoStatus.Queued || v.Status == VideoStatus.Processing,
+            s => s.SetProperty(v => v.Status, VideoStatus.Processing).SetProperty(v => v.UpdatedAt, time.GetUtcNow()),
+            job.Attempt == 1 ? WebhookEventTypes.VideoProcessing : null);
         var source = storage.FindSource(videoId);
-        if (started == 0 || source is null)
+        if (!started || source is null)
         {
-            await FinishJobAsync(db, job.Id, JobStatus.Cancelled, started == 0 ? "Video is no longer queued." : "The source file is missing.");
-            if (started != 0)
+            await FinishJobAsync(db, job.Id, JobStatus.Cancelled, !started ? "Video is no longer queued." : "The source file is missing.");
+            if (started)
             {
-                await SetVideoAsync(db, videoId, VideoStatus.Processing, VideoStatus.Failed, "The original file is missing; re-upload the video.");
+                await SetVideoAsync(db, events, videoId, VideoStatus.Processing, VideoStatus.Failed, "The original file is missing; re-upload the video.");
             }
 
             return;
@@ -142,7 +147,7 @@ public sealed partial class ProcessingWorker(
             var facts = await processor.ProcessAsync(source, workDir, progress, jobCts.Token);
             await heartbeatStop.CancelAsync();
             await heartbeat;
-            await CompleteAsync(db, job, workDir, facts);
+            await CompleteAsync(db, events, job, workDir, facts);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -150,7 +155,7 @@ public sealed partial class ProcessingWorker(
             await db.Set<ProcessingJob>().Where(j => j.Id == job.Id && j.Status == JobStatus.Running)
                 .ExecuteUpdateAsync(s => s.SetProperty(j => j.Status, JobStatus.Queued).SetProperty(j => j.Attempt, j => j.Attempt - 1)
                     .SetProperty(j => j.LeaseOwner, (string?)null).SetProperty(j => j.LeaseExpiresAt, (DateTimeOffset?)null), CancellationToken.None);
-            await SetVideoAsync(db, videoId, VideoStatus.Processing, VideoStatus.Queued, null);
+            await SetVideoAsync(db, events, videoId, VideoStatus.Processing, VideoStatus.Queued, null);
         }
         catch (OperationCanceledException)
         {
@@ -160,7 +165,7 @@ public sealed partial class ProcessingWorker(
         catch (MediaRejectedException ex)
         {
             await FinishJobAsync(db, job.Id, JobStatus.Failed, ex.Message);
-            await SetVideoAsync(db, videoId, VideoStatus.Processing, VideoStatus.Failed, ex.Message);
+            await SetVideoAsync(db, events, videoId, VideoStatus.Processing, VideoStatus.Failed, ex.Message);
             LogRejected(logger, videoId, ex.Message);
         }
         catch (Exception ex) when (ex is MediaProcessingException or IOException or InvalidOperationException)
@@ -174,12 +179,12 @@ public sealed partial class ProcessingWorker(
                     .ExecuteUpdateAsync(s => s.SetProperty(j => j.Status, JobStatus.Queued).SetProperty(j => j.AvailableAt, retryAt)
                         .SetProperty(j => j.LastError, message).SetProperty(j => j.LeaseOwner, (string?)null)
                         .SetProperty(j => j.LeaseExpiresAt, (DateTimeOffset?)null), CancellationToken.None);
-                await SetVideoAsync(db, videoId, VideoStatus.Processing, VideoStatus.Queued, null);
+                await SetVideoAsync(db, events, videoId, VideoStatus.Processing, VideoStatus.Queued, null);
             }
             else
             {
                 await FinishJobAsync(db, job.Id, JobStatus.Failed, message);
-                await SetVideoAsync(db, videoId, VideoStatus.Processing, VideoStatus.Failed, message);
+                await SetVideoAsync(db, events, videoId, VideoStatus.Processing, VideoStatus.Failed, message);
             }
         }
         finally
@@ -198,7 +203,7 @@ public sealed partial class ProcessingWorker(
         }
     }
 
-    private async Task CompleteAsync(FoxfireDbContext db, ProcessingJob job, string workDir, MediaFacts facts)
+    private async Task CompleteAsync(FoxfireDbContext db, WebhookEvents events, ProcessingJob job, string workDir, MediaFacts facts)
     {
         var videoId = job.VideoId;
 
@@ -218,9 +223,7 @@ public sealed partial class ProcessingWorker(
 
         var footprint = storage.Measure(videoId);
         var now = time.GetUtcNow();
-        var updated = await db.Set<Video>()
-            .Where(v => v.Id == videoId && v.Status == VideoStatus.Processing)
-            .ExecuteUpdateAsync(s => s
+        var updated = await TransitionAsync(db, events, videoId, v => v.Status == VideoStatus.Processing, s => s
                 .SetProperty(v => v.Status, VideoStatus.Ready)
                 .SetProperty(v => v.ProcessingMode, facts.Mode)
                 .SetProperty(v => v.DurationMs, facts.DurationMs)
@@ -232,10 +235,11 @@ public sealed partial class ProcessingWorker(
                 .SetProperty(v => v.SourceBytes, footprint.SourceBytes)
                 .SetProperty(v => v.ErrorMessage, (string?)null)
                 .SetProperty(v => v.ReadyAt, now)
-                .SetProperty(v => v.UpdatedAt, now));
+                .SetProperty(v => v.UpdatedAt, now),
+            WebhookEventTypes.VideoReady);
 
-        await FinishJobAsync(db, job.Id, updated == 1 ? JobStatus.Succeeded : JobStatus.Cancelled, null, progress: 100);
-        if (updated == 1)
+        await FinishJobAsync(db, job.Id, updated ? JobStatus.Succeeded : JobStatus.Cancelled, null, progress: 100);
+        if (updated)
         {
             LogReady(logger, videoId, facts.Mode);
         }
@@ -278,11 +282,41 @@ public sealed partial class ProcessingWorker(
                 .SetProperty(j => j.LeaseExpiresAt, (DateTimeOffset?)null), CancellationToken.None);
     }
 
-    private async Task SetVideoAsync(FoxfireDbContext db, Guid videoId, VideoStatus from, VideoStatus to, string? error)
+    private async Task SetVideoAsync(FoxfireDbContext db, WebhookEvents events, Guid videoId, VideoStatus from, VideoStatus to, string? error)
     {
         var now = time.GetUtcNow();
-        await db.Set<Video>().Where(v => v.Id == videoId && v.Status == from)
-            .ExecuteUpdateAsync(s => s.SetProperty(v => v.Status, to).SetProperty(v => v.ErrorMessage, error).SetProperty(v => v.UpdatedAt, now), CancellationToken.None);
+        await TransitionAsync(db, events, videoId, v => v.Status == from,
+            s => s.SetProperty(v => v.Status, to).SetProperty(v => v.ErrorMessage, error).SetProperty(v => v.UpdatedAt, now),
+            to == VideoStatus.Failed ? WebhookEventTypes.VideoFailed : null);
+    }
+
+    /// <summary>
+    /// A conditional state change and (when it applied) its webhook event, committed together.
+    /// </summary>
+    private static async Task<bool> TransitionAsync(
+        FoxfireDbContext db,
+        WebhookEvents events,
+        Guid videoId,
+        Expression<Func<Video, bool>> when,
+        Action<UpdateSettersBuilder<Video>> set,
+        string? eventType)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(CancellationToken.None);
+        var applied = await db.Set<Video>().Where(v => v.Id == videoId).Where(when).ExecuteUpdateAsync(set, CancellationToken.None) == 1;
+        if (applied && eventType is not null)
+        {
+            var video = await db.Set<Video>().AsNoTracking().SingleAsync(v => v.Id == videoId);
+            await events.RaiseAsync(video, eventType, CancellationToken.None);
+            await db.SaveChangesAsync();
+        }
+
+        await tx.CommitAsync(CancellationToken.None);
+        if (applied && eventType is not null)
+        {
+            events.Wake();
+        }
+
+        return applied;
     }
 
     /// <summary>
@@ -294,6 +328,7 @@ public sealed partial class ProcessingWorker(
     {
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<FoxfireDbContext>();
+        var events = scope.ServiceProvider.GetRequiredService<WebhookEvents>();
         var now = time.GetUtcNow();
 
         // Anything still Running belongs to a previous process. Re-queue it; the attempt it already spent
@@ -307,7 +342,7 @@ public sealed partial class ProcessingWorker(
             job.AvailableAt = now;
             job.LeaseOwner = null;
             job.LeaseExpiresAt = null;
-            await SetVideoAsync(db, job.VideoId, VideoStatus.Processing, VideoStatus.Queued, null);
+            await SetVideoAsync(db, events, job.VideoId, VideoStatus.Processing, VideoStatus.Queued, null);
         }
 
         await db.SaveChangesAsync(ct);

@@ -37,7 +37,7 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public string SigningKey { get; }
 
     /// <summary>Server clock. Starts at real "now" and only moves when a test advances it.</summary>
-    public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
+    public FakeTimeProvider Time { get; } = new(DateTimeOffset.FromUnixTimeSeconds(DateTimeOffset.UtcNow.ToUnixTimeSeconds()));
 
     public FakeStorageStats Disk { get; } = new();
 

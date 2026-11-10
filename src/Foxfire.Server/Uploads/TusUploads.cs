@@ -5,6 +5,7 @@ using Foxfire.Server.Processing;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
 using Foxfire.Server.Videos;
+using Foxfire.Server.Webhooks;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -246,19 +247,36 @@ public static class TusUploads
         var appValid = await db.Set<Application>().AnyAsync(
             a => a.Id == claims.ApplicationId && a.Status == ApplicationStatus.Active && a.TokenEpoch == claims.Epoch, ctx.CancellationToken);
 
-        // The single atomic statement that consumes the grant: only one concurrent creation can match.
-        var consumed = appValid && await db.Set<Video>()
-            .Where(v => v.Id == claims.VideoId &&
-                        v.ApplicationId == claims.ApplicationId &&
-                        v.UploadGrantId == claims.GrantId &&
-                        v.Status == VideoStatus.AwaitingUpload &&
-                        v.UploadStartedAt == null &&
-                        v.UploadExpiresAt > now)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(v => v.Status, VideoStatus.Uploading)
-                .SetProperty(v => v.UploadStartedAt, now)
-                .SetProperty(v => v.UploadLastActivityAt, now)
-                .SetProperty(v => v.UpdatedAt, now), ctx.CancellationToken) == 1;
+        var consumed = false;
+        if (appValid)
+        {
+            var events = services.GetRequiredService<WebhookEvents>();
+            await using var tx = await db.Database.BeginTransactionAsync(ctx.CancellationToken);
+
+            // The single atomic statement that consumes the grant: only one concurrent creation can match.
+            consumed = await db.Set<Video>()
+                .Where(v => v.Id == claims.VideoId &&
+                            v.ApplicationId == claims.ApplicationId &&
+                            v.UploadGrantId == claims.GrantId &&
+                            v.Status == VideoStatus.AwaitingUpload &&
+                            v.UploadStartedAt == null &&
+                            v.UploadExpiresAt > now)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(v => v.Status, VideoStatus.Uploading)
+                    .SetProperty(v => v.UploadStartedAt, now)
+                    .SetProperty(v => v.UploadLastActivityAt, now)
+                    .SetProperty(v => v.UpdatedAt, now), ctx.CancellationToken) == 1;
+
+            if (consumed)
+            {
+                var video = await db.Set<Video>().AsNoTracking().SingleAsync(v => v.Id == claims.VideoId, ctx.CancellationToken);
+                await events.RaiseAsync(video, WebhookEventTypes.UploadStarted, ctx.CancellationToken);
+                await db.SaveChangesAsync(ctx.CancellationToken);
+            }
+
+            await tx.CommitAsync(ctx.CancellationToken);
+            events.Wake();
+        }
 
         if (!consumed)
         {
@@ -302,7 +320,8 @@ public static class TusUploads
         video.SourceBytes = new FileInfo(source).Length;
         video.StorageBytes = video.SourceBytes;
         video.UploadLastActivityAt = now;
-        queue.Enqueue(db, video, "upload"); // status -> Queued, plus the job row, in one transaction
+        queue.Enqueue(db, video, "upload"); // status -> Queued, plus the job row and the event, in one transaction
+        await services.GetRequiredService<WebhookEvents>().RaiseAsync(video, WebhookEventTypes.UploadCompleted, ctx.CancellationToken);
         await db.SaveChangesAsync(ctx.CancellationToken);
         queue.Wake();
     }
@@ -320,7 +339,7 @@ public static class TusUploads
 }
 
 /// <summary>Marks an upload failed: partial bytes are deleted and the token stays consumed.</summary>
-public sealed class UploadFailures(FoxfireDbContext db, TusDiskStore store, TimeProvider time)
+public sealed class UploadFailures(FoxfireDbContext db, TusDiskStore store, WebhookEvents events, TimeProvider time)
 {
     /// <returns>
     /// False when the row changed concurrently (e.g. the client just sent more bytes); nothing is touched then.
@@ -333,6 +352,7 @@ public sealed class UploadFailures(FoxfireDbContext db, TusDiskStore store, Time
         video.ErrorMessage = reason;
         video.TusFileId = null;
         video.UpdatedAt = time.GetUtcNow();
+        await events.RaiseAsync(video, WebhookEventTypes.UploadFailed, ct);
         try
         {
             await db.SaveChangesAsync(ct);
@@ -340,6 +360,11 @@ public sealed class UploadFailures(FoxfireDbContext db, TusDiskStore store, Time
         catch (DbUpdateConcurrencyException)
         {
             db.Entry(video).State = EntityState.Detached;
+            foreach (var pending in db.ChangeTracker.Entries<WebhookDelivery>().Where(e => e.State == EntityState.Added).ToList())
+            {
+                pending.State = EntityState.Detached; // the failure did not happen, so neither did its event
+            }
+
             return false;
         }
 

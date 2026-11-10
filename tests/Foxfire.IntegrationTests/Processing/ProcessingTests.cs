@@ -173,9 +173,16 @@ public sealed class ProcessingTests
             var db = scope.ServiceProvider.GetRequiredService<FoxfireDbContext>();
             db.Add(new ProcessingJob
             {
-                Id = Guid.CreateVersion7(), VideoId = videoId, Status = JobStatus.Running, Attempt = 1, MaxAttempts = 3,
-                LeaseOwner = "dead-worker", LeaseExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
-                CreatedAt = DateTimeOffset.UtcNow, AvailableAt = DateTimeOffset.UtcNow, Reason = "upload",
+                Id = Guid.CreateVersion7(),
+                VideoId = videoId,
+                Status = JobStatus.Running,
+                Attempt = 1,
+                MaxAttempts = 3,
+                LeaseOwner = "dead-worker",
+                LeaseExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
+                CreatedAt = DateTimeOffset.UtcNow,
+                AvailableAt = DateTimeOffset.UtcNow,
+                Reason = "upload",
             });
             await db.SaveChangesAsync();
             CopyDirectory(storageRoot, storageRoot + "-kept");
@@ -209,9 +216,16 @@ public sealed class ProcessingTests
             // Seeding happens after this host's recovery ran, so the worker sees a stale lease instead.
             db.Add(new ProcessingJob
             {
-                Id = Guid.CreateVersion7(), VideoId = video.Id, Status = JobStatus.Running, Attempt = 3, MaxAttempts = 3,
-                LeaseOwner = "dead-worker", LeaseExpiresAt = factory.Time.GetUtcNow().AddMinutes(-1),
-                CreatedAt = DateTimeOffset.UtcNow, AvailableAt = DateTimeOffset.UtcNow, Reason = "upload",
+                Id = Guid.CreateVersion7(),
+                VideoId = video.Id,
+                Status = JobStatus.Running,
+                Attempt = 3,
+                MaxAttempts = 3,
+                LeaseOwner = "dead-worker",
+                LeaseExpiresAt = factory.Time.GetUtcNow().AddMinutes(-1),
+                CreatedAt = DateTimeOffset.UtcNow,
+                AvailableAt = DateTimeOffset.UtcNow,
+                Reason = "upload",
             });
             await db.SaveChangesAsync();
         }
