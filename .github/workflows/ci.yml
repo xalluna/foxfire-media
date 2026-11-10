@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  dotnet:
+    name: .NET build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore Foxfire.slnx
+
+      - name: Format check
+        run: dotnet format Foxfire.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Foxfire.slnx -c Release --no-restore -warnaserror
+
+      - name: Test
+        run: dotnet test --solution Foxfire.slnx -c Release --no-build
