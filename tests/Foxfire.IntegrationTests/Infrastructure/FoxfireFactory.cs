@@ -113,9 +113,16 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
         }
     }
 
+    /// <summary>Optional web root (e.g. a fake Vite build) for tests that exercise static/embed assets.</summary>
+    public string? WebRoot { get; set; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        if (WebRoot is not null)
+        {
+            builder.UseWebRoot(WebRoot);
+        }
 
         // In-memory source, not UseSetting: UseSetting reaches the app as command-line arguments,
         // which the server (correctly) refuses as a source of API keys.

@@ -2,6 +2,7 @@ using Foxfire.Server;
 using Foxfire.Server.Applications;
 using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
+using Foxfire.Server.Embed;
 using Foxfire.Server.Media;
 using Foxfire.Server.Processing;
 using Foxfire.Server.Security;
@@ -35,6 +36,7 @@ builder.Services.AddFoxfireMedia();
 builder.Services.AddFoxfireProcessing();
 builder.Services.AddFoxfireWebhooks();
 builder.Services.AddFoxfireStreaming();
+builder.Services.AddFoxfireEmbeds();
 
 var app = builder.Build();
 
@@ -63,10 +65,12 @@ app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.
 
 app.MapAppApi()
     .MapAppVideos()
-    .MapAppUploads();
+    .MapAppUploads()
+    .MapAppEmbeds();
 
 app.MapTusUploads();
 app.MapStreaming();
+app.MapEmbedPages();
 
 await app.RunAsync();
 
