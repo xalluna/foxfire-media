@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Foxfire.Server.Media;
 using Foxfire.Server.Storage;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -39,6 +40,8 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
 
     public FakeStorageStats Disk { get; } = new();
+
+    public FakeMediaProcessor Media { get; } = new();
 
     public const string PublicBaseUrl = "http://foxfire.test";
 
@@ -131,6 +134,8 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.AddSingleton<TimeProvider>(Time);
             services.RemoveAll<IStorageStats>();
             services.AddSingleton<IStorageStats>(Disk);
+            services.RemoveAll<IMediaProcessor>();
+            services.AddSingleton<IMediaProcessor>(Media);
         });
 
         builder.ConfigureLogging(logging =>

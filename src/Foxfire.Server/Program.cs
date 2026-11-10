@@ -2,6 +2,7 @@ using Foxfire.Server;
 using Foxfire.Server.Applications;
 using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
+using Foxfire.Server.Media;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
 using Foxfire.Server.Uploads;
@@ -27,6 +28,7 @@ builder.Services.AddFoxfireStorage();
 builder.Services.AddFoxfireVideos();
 builder.Services.AddFoxfireTokens();
 builder.Services.AddFoxfireUploads();
+builder.Services.AddFoxfireMedia();
 
 var app = builder.Build();
 

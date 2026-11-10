@@ -36,5 +36,9 @@ jobs:
       - name: Build
         run: dotnet build Foxfire.slnx -c Release --no-restore -warnaserror
 
+      # Media tests run the real ffprobe/ffmpeg pipeline; they skip only where ffmpeg is absent.
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
       - name: Test
         run: dotnet test --solution Foxfire.slnx -c Release --no-build
