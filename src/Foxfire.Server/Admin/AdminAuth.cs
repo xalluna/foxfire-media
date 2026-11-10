@@ -51,7 +51,7 @@ public static partial class AdminAuth
     public static readonly TimeSpan AbsoluteLifetime = TimeSpan.FromDays(7);
     private static readonly TimeSpan StampCheckCache = TimeSpan.FromSeconds(60);
 
-    public static IServiceCollection AddFoxfireAdminAuth(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddFoxfireAdminAuth(this IServiceCollection services)
     {
         services.AddSingleton<AdminPasswords>();
 
@@ -65,8 +65,8 @@ public static partial class AdminAuth
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Strict;
                 options.Cookie.Path = "/";
-                // Always Secure in production (the server normally sits behind a TLS proxy); tests run on plain http.
-                options.Cookie.SecurePolicy = environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+                // Secure whenever the request is https; with an https PublicBaseUrl every request is (see UsePublicScheme).
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.ExpireTimeSpan = SlidingLifetime;
                 options.SlidingExpiration = true;
                 options.Events = new CookieAuthenticationEvents
@@ -86,7 +86,7 @@ public static partial class AdminAuth
             options.Cookie.Name = "foxfire_af";
             options.Cookie.SameSite = SameSiteMode.Strict;
             options.Cookie.HttpOnly = true;
-            options.Cookie.SecurePolicy = environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         });
 
         return services;
@@ -117,14 +117,14 @@ public static partial class AdminAuth
     }
 
     /// <summary>Issues the double-submit token: a JS-readable XSRF-TOKEN cookie the SPA echoes in X-XSRF-TOKEN.</summary>
-    private static IResult IssueAntiforgery(HttpContext context, IAntiforgery antiforgery, IHostEnvironment environment)
+    private static IResult IssueAntiforgery(HttpContext context, IAntiforgery antiforgery)
     {
         var tokens = antiforgery.GetAndStoreTokens(context);
         context.Response.Cookies.Append(XsrfCookieName, tokens.RequestToken!, new CookieOptions
         {
             HttpOnly = false,
             SameSite = SameSiteMode.Strict,
-            Secure = environment.IsProduction() || context.Request.IsHttps,
+            Secure = context.Request.IsHttps,
             Path = "/",
         });
         context.Response.Headers.CacheControl = "no-store";

@@ -32,4 +32,28 @@ public sealed class PublicUrls
     public string Origin { get; }
 
     public string Absolute(string path) => Origin + (path.StartsWith('/') ? path : "/" + path);
+
+    public bool IsHttps => BaseUri.Scheme == Uri.UriSchemeHttps;
+}
+
+public static class PublicSchemeExtensions
+{
+    /// <summary>
+    /// The server is reached through <c>PublicBaseUrl</c>. When that is https, TLS is terminated in
+    /// front of the server (reverse proxy), so requests are treated as https: cookies get the Secure
+    /// flag and antiforgery works without trusting forwarded headers.
+    /// </summary>
+    public static IApplicationBuilder UsePublicScheme(this IApplicationBuilder app)
+    {
+        if (app.ApplicationServices.GetRequiredService<PublicUrls>().IsHttps)
+        {
+            app.Use((context, next) =>
+            {
+                context.Request.Scheme = Uri.UriSchemeHttps;
+                return next(context);
+            });
+        }
+
+        return app;
+    }
 }

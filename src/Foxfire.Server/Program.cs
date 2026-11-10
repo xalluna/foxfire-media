@@ -39,7 +39,7 @@ builder.Services.AddFoxfireProcessing();
 builder.Services.AddFoxfireWebhooks();
 builder.Services.AddFoxfireStreaming();
 builder.Services.AddFoxfireEmbeds();
-builder.Services.AddFoxfireAdminAuth(builder.Environment);
+builder.Services.AddFoxfireAdminAuth();
 
 var app = builder.Build();
 
@@ -53,6 +53,7 @@ await app.Services.SyncApplicationsAsync();
 await app.Services.ResumePendingDeletesAsync();
 await app.Services.BootstrapAdminAsync();
 
+app.UsePublicScheme();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<RequestLoggingMiddleware>();

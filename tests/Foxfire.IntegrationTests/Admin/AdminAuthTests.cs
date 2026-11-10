@@ -4,6 +4,7 @@ using Foxfire.IntegrationTests.Infrastructure;
 using Foxfire.Server.Admin;
 using Foxfire.Server.Data;
 using Foxfire.Server.Security;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,45 @@ public sealed class AdminAuthTests
         Assert.Contains("httponly", cookie, StringComparison.Ordinal);
         Assert.Contains("samesite=strict", cookie, StringComparison.Ordinal);
         Assert.Contains("path=/", cookie, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Production", "https://media.example.com", true)]
+    [InlineData("Production", "http://media.lan:8080", false)]
+    public async Task Cookies_are_secure_exactly_when_the_public_origin_is_https(string environment, string publicBaseUrl, bool secure)
+    {
+        // Behind a TLS-terminating proxy the server itself sees plain http; this must still work.
+        await using var factory = new EnvironmentFactory(environment);
+        await factory.InitializeAsync();
+        var password = factory.AddBootstrapAdmin("root");
+        factory.Settings["PublicBaseUrl"] = publicBaseUrl;
+
+        // The server behind the TLS proxy sees plain http, so cookies are carried by hand here,
+        // the way the browser on the https origin would send them back.
+        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+
+        using var xsrf = await client.GetAsync("/api/admin/antiforgery");
+        Assert.Equal(HttpStatusCode.NoContent, xsrf.StatusCode);
+        var setCookies = xsrf.Headers.GetValues("Set-Cookie").ToList();
+        var token = setCookies.Single(c => c.StartsWith("XSRF-TOKEN=", StringComparison.Ordinal));
+        using var login = new HttpRequestMessage(HttpMethod.Post, "/api/admin/auth/login") { Content = JsonContent.Create(new { username = "root", password }) };
+        login.Headers.Add("Cookie", string.Join("; ", setCookies.Select(c => c.Split(';')[0])));
+        login.Headers.Add("X-XSRF-TOKEN", Uri.UnescapeDataString(token.Split(';')[0]["XSRF-TOKEN=".Length..]));
+        using var response = await client.SendAsync(login);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var session = response.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith(AdminAuth.CookieName + "=", StringComparison.Ordinal)).ToLowerInvariant();
+        Assert.Equal(secure, session.Contains("; secure", StringComparison.Ordinal));
+        Assert.Equal(secure, token.ToLowerInvariant().Contains("; secure", StringComparison.Ordinal));
+    }
+
+    private sealed class EnvironmentFactory(string environment) : FoxfireFactory
+    {
+        protected override void ConfigureWebHost(Microsoft.AspNetCore.Hosting.IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.UseEnvironment(environment);
+        }
     }
 
     [Fact]
