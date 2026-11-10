@@ -1,7 +1,9 @@
 using Foxfire.Server.Applications;
+using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
 using Foxfire.Server.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,22 +14,33 @@ builder.Configuration.AddEnvironmentVariables();
 // The hosting diagnostics logger writes full request URLs; keep it quiet regardless of appsettings.
 builder.Logging.AddFilter("Microsoft.AspNetCore.Hosting.Diagnostics", LogLevel.Warning);
 
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddProblemDetails();
 builder.Services.AddFoxfireData();
 builder.Services.AddFoxfireApplications();
+builder.Services.AddFoxfireAuth();
 
 var app = builder.Build();
 
 // Fail fast on invalid application / key configuration before touching the database.
 _ = app.Services.GetRequiredService<ApplicationCatalog>();
 await app.Services.MigrateFoxfireDatabaseAsync();
+await app.Services.SyncApplicationsAsync();
 
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 app.UseMiddleware<RequestLoggingMiddleware>();
+app.UseMiddleware<ApiKeyGuardMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
     .ExcludeFromDescription();
 
 // Readiness reports only Healthy/Unhealthy — never check details.
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+
+app.MapAppApi();
 
 await app.RunAsync();
 
