@@ -191,6 +191,17 @@ The response gives you `embedUrl` and `posterUrl`. Put the embed URL in an ifram
 <iframe src="{embedUrl}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
 ```
 
+To try an embed locally, run the reference app in
+[`samples/embed-playground`](samples/embed-playground/server.mjs):
+
+```bash
+node samples/embed-playground/server.mjs
+```
+
+It is a dependency-free Node server that holds an app's key, lists that app's videos and frames
+fresh embed URLs at http://localhost:5500. Run it with `PORT=5501` to watch the browser refuse a
+frame from an origin that isn't allowed.
+
 You can append `?autoplay=true&muted=true&t=30` to the URL. The URL only needs to be valid when the
 iframe loads, so mint one per page view.
 
