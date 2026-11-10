@@ -13,6 +13,12 @@ public sealed class StorageOptions
     /// <summary>The Storage page warns when free space drops below this percentage of the drive.</summary>
     public double LowSpaceWarningPercent { get; set; } = 10;
 
+    /// <summary>
+    /// Require <see cref="MediaVolume.MarkerFileName"/> in the root, so media is never written to the OS
+    /// disk when a dedicated drive is not mounted. Off by default; turn it on for a dedicated drive.
+    /// </summary>
+    public bool RequireVolumeMarker { get; set; }
+
     /// <summary>How often disk and database are compared (orphans, missing files, sizes).</summary>
     public TimeSpan ReconcileInterval { get; set; } = TimeSpan.FromHours(1);
 }

@@ -32,8 +32,26 @@ media storage is writable, and that ffmpeg is present.
 If your network cannot reach `archive.ubuntu.com`, set `APT_MIRROR=http://azure.archive.ubuntu.com`
 in `.env` before building.
 
-Media lives in `/data/media`. Bind-mount a dedicated disk with `MEDIA_PATH=/mnt/media`, so the
-admin console's free-space figure describes that disk.
+Media lives in `/data/media`. Everything large goes there: uploads in progress, kept originals,
+processing scratch and HLS streams. Bind-mount a dedicated disk with `MEDIA_PATH=/mnt/media`, so
+the admin console's free-space figure describes that disk.
+
+**Make sure media only ever lands on that disk.** If the drive isn't mounted, the mount point is an
+empty directory on the OS disk, and Docker even creates a missing one. To guard against this:
+
+1. Create the marker on the drive once:
+
+   ```bash
+   touch /mnt/media/.foxfire-media-volume
+   ```
+
+2. Set `Storage__RequireVolumeMarker=true` in `.env`.
+
+Without the marker, the server refuses to start and creates nothing on the wrong disk. If the drive
+disappears while the server is running, `/readyz` reports unhealthy and new uploads are refused with
+`507`.
+
+On a Linux host, also run `chown 1654 /mnt/media`, since the container runs as uid 1654.
 
 ### Admin console
 
