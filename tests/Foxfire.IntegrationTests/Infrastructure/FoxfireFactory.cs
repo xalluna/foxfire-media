@@ -119,14 +119,20 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
         // In-memory source, not UseSetting: UseSetting reaches the app as command-line arguments,
         // which the server (correctly) refuses as a source of API keys.
-        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(
-            new Dictionary<string, string?>(Settings, StringComparer.OrdinalIgnoreCase)
-            {
-                ["ConnectionStrings:Foxfire"] = ConnectionString,
-                ["Webhooks:AllowHttp"] = "true",
-                ["Storage:Root"] = StorageRoot,
-                ["PublicBaseUrl"] = PublicBaseUrl,
-            }));
+        var settings = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ConnectionStrings:Foxfire"] = ConnectionString,
+            ["Webhooks:AllowHttp"] = "true",
+            ["Storage:Root"] = StorageRoot,
+            ["PublicBaseUrl"] = PublicBaseUrl,
+            ["Processing:RetryDelay"] = "00:00:00",
+        };
+        foreach (var (key, value) in Settings)
+        {
+            settings[key] = value; // tests may override any default
+        }
+
+        builder.ConfigureAppConfiguration(config => config.AddInMemoryCollection(settings));
 
         builder.ConfigureTestServices(services =>
         {

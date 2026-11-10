@@ -24,7 +24,8 @@ public static class TestData
         VideoStatus status = VideoStatus.Ready,
         string? title = null,
         string? externalId = null,
-        bool withFiles = false)
+        bool withFiles = false,
+        bool withSource = false)
     {
         var appId = await factory.AppIdAsync(appName);
         await using var scope = factory.Services.CreateAsyncScope();
@@ -60,7 +61,11 @@ public static class TestData
             await File.WriteAllBytesAsync(Path.Combine(work, "seg_00001.m4s"), new byte[256]);
             await File.WriteAllBytesAsync(Path.Combine(work, "poster.jpg"), new byte[32]);
             storage.Publish(video.Id, work);
+        }
 
+        if (withFiles || withSource)
+        {
+            var storage = scope.ServiceProvider.GetRequiredService<IMediaStorage>();
             var source = Path.Combine(storage.UploadsDirectory, Guid.NewGuid().ToString("N"));
             await File.WriteAllBytesAsync(source, new byte[1024]);
             storage.AdoptSource(video.Id, source, ".mp4");
@@ -68,6 +73,26 @@ public static class TestData
 
         return video;
     }
+
+    /// <summary>Polls (in real time) until the condition holds; the server's own clock is fake and does not move.</summary>
+    public static async Task WaitUntilAsync(Func<Task<bool>> condition, string what, int timeoutMs = 10_000)
+    {
+        var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (await condition())
+            {
+                return;
+            }
+
+            await Task.Delay(25);
+        }
+
+        Assert.Fail($"Timed out waiting for {what}.");
+    }
+
+    public static Task WaitForStatusAsync(this FoxfireFactory factory, Guid videoId, VideoStatus status) =>
+        WaitUntilAsync(async () => (await factory.FindVideoAsync(videoId))?.Status == status, $"video to become {status}");
 
     public static async Task<Video?> FindVideoAsync(this FoxfireFactory factory, Guid id)
     {

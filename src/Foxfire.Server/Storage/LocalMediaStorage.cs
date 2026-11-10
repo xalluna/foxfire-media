@@ -55,11 +55,7 @@ public sealed partial class LocalMediaStorage : IMediaStorage
         }
 
         var dir = Path.Combine(_sources, Id(videoId));
-        if (Directory.Exists(dir))
-        {
-            Directory.Delete(dir, recursive: true);
-        }
-
+        DeleteDirectory(dir);
         Directory.CreateDirectory(dir);
         var destination = Path.Combine(dir, "source" + extension);
         File.Move(uploadedFilePath, destination);
@@ -125,23 +121,17 @@ public sealed partial class LocalMediaStorage : IMediaStorage
 
     public void Delete(Guid videoId)
     {
-        foreach (var dir in new[] { Path.Combine(_videos, Id(videoId)), Path.Combine(_sources, Id(videoId)) })
+        DeleteDirectory(Path.Combine(_videos, Id(videoId)));
+        DeleteDirectory(Path.Combine(_sources, Id(videoId)));
+        foreach (var dir in Directory.EnumerateDirectories(_work, Id(videoId) + "-*").ToList())
         {
-            if (Directory.Exists(dir))
-            {
-                Directory.Delete(dir, recursive: true);
-            }
-        }
-
-        foreach (var dir in Directory.EnumerateDirectories(_work, Id(videoId) + "-*"))
-        {
-            Directory.Delete(dir, recursive: true);
+            DeleteDirectory(dir);
         }
     }
 
     public void CleanWorkDirectories(IReadOnlySet<Guid> keep)
     {
-        foreach (var dir in Directory.EnumerateDirectories(_work))
+        foreach (var dir in Directory.EnumerateDirectories(_work).ToList())
         {
             var name = Path.GetFileName(dir);
             if (name.Length >= 32 && Guid.TryParseExact(name[..32], "N", out var id) && keep.Contains(id))
@@ -149,7 +139,19 @@ public sealed partial class LocalMediaStorage : IMediaStorage
                 continue;
             }
 
+            DeleteDirectory(dir);
+        }
+    }
+
+    /// <summary>Idempotent: another party (e.g. a finishing worker) may remove the directory first.</summary>
+    private static void DeleteDirectory(string dir)
+    {
+        try
+        {
             Directory.Delete(dir, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
         }
     }
 

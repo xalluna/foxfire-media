@@ -62,9 +62,11 @@ public sealed class MintedUploadTests(TwoAppFactory factory) : IClassFixture<Two
         Assert.Equal(HttpStatusCode.NoContent, (await tus.PatchAsync(location, 2000, Payload[2000..])).StatusCode);
 
         var video = await VideoAsync(ticket.VideoId);
-        Assert.Equal(VideoStatus.Queued, video.Status);
-        Assert.Equal(Payload.Length, video.SourceBytes);
+        Assert.Contains(video.Status, new[] { VideoStatus.Queued, VideoStatus.Processing, VideoStatus.Ready });
         Assert.Null(video.TusFileId);
+        await factory.WaitForStatusAsync(video.Id, VideoStatus.Ready);
+        video = await VideoAsync(ticket.VideoId);
+        Assert.Equal(Payload.Length, video.SourceBytes);
 
         var source = factory.Services.GetRequiredService<IMediaStorage>().FindSource(video.Id);
         Assert.NotNull(source);
@@ -157,7 +159,7 @@ public sealed class MintedUploadTests(TwoAppFactory factory) : IClassFixture<Two
         var retry = Tus(renewed!.UploadToken);
         var retryLocation = await retry.CreateOrThrowAsync(Payload.Length);
         Assert.Equal(HttpStatusCode.NoContent, (await retry.PatchAsync(retryLocation, 0, Payload)).StatusCode);
-        Assert.Equal(VideoStatus.Queued, (await VideoAsync(ticket.VideoId)).Status);
+        await factory.WaitForStatusAsync(video.Id, VideoStatus.Ready);
     }
 
     [Fact]

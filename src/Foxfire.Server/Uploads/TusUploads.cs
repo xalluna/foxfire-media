@@ -1,6 +1,7 @@
 using System.Net;
 using Foxfire.Server.Applications;
 using Foxfire.Server.Data;
+using Foxfire.Server.Processing;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
 using Foxfire.Server.Videos;
@@ -295,14 +296,15 @@ public static class TusUploads
         var source = storage.AdoptSource(video.Id, Path.Combine(storage.UploadsDirectory, ctx.FileId), extension);
         await ((ITusTerminationStore)ctx.Store).DeleteFileAsync(ctx.FileId, ctx.CancellationToken); // tus bookkeeping files
 
+        var queue = services.GetRequiredService<ProcessingQueue>();
         var now = time.GetUtcNow();
-        video.Status = VideoStatus.Queued;
         video.TusFileId = null;
         video.SourceBytes = new FileInfo(source).Length;
         video.StorageBytes = video.SourceBytes;
         video.UploadLastActivityAt = now;
-        video.UpdatedAt = now;
+        queue.Enqueue(db, video, "upload"); // status -> Queued, plus the job row, in one transaction
         await db.SaveChangesAsync(ctx.CancellationToken);
+        queue.Wake();
     }
 
     private static async Task DeleteCompleteAsync(DeleteCompleteContext ctx)
