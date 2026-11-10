@@ -1,0 +1,57 @@
+# FoxfireMedia stack: PostgreSQL + the server (API, uploads, streaming, embed pages, admin UI).
+#
+#   cp .env.example .env                                   # then fill in real secrets
+#   cp config/appsettings.example.json config/appsettings.json   # declare your applications
+#   docker compose up -d --build
+#
+# Behind a network that cannot reach archive.ubuntu.com, set APT_MIRROR in .env
+# (e.g. APT_MIRROR=http://azure.archive.ubuntu.com).
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: foxfire
+      POSTGRES_USER: foxfire
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foxfire -d foxfire"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build:
+      context: .
+      args:
+        APT_MIRROR: ${APT_MIRROR:-}
+    image: ghcr.io/xalluna/foxfire-media:${FOXFIRE_TAG:-latest}
+    env_file: .env
+    environment:
+      ConnectionStrings__Foxfire: Host=db;Database=foxfire;Username=foxfire;Password=${POSTGRES_PASSWORD}
+    volumes:
+      # Media lives here. Point MEDIA_PATH at a dedicated disk so the admin's free-space report
+      # describes that device (a named volume reports Docker's own filesystem).
+      - ${MEDIA_PATH:-media}:/data/media
+      # Application list (Name / WebhookUrl / AllowedOrigins). Keys never go in this file.
+      - ./config:/app/config:ro
+    ports:
+      - "${FOXFIRE_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

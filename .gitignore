@@ -1,0 +1,29 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+*.trx
+coverage*/
+
+# Node / web
+node_modules/
+web/dist/
+src/Foxfire.Server/wwwroot/
+*.tsbuildinfo
+
+# Local runtime config and secrets — never commit
+.env
+.env.*
+!.env.example
+config/appsettings.json
+appsettings.*.local.json
+/data/
+/media/
+
+# OS
+.DS_Store
+Thumbs.db
