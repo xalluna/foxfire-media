@@ -12,4 +12,7 @@ public sealed class StorageOptions
 
     /// <summary>The Storage page warns when free space drops below this percentage of the drive.</summary>
     public double LowSpaceWarningPercent { get; set; } = 10;
+
+    /// <summary>How often disk and database are compared (orphans, missing files, sizes).</summary>
+    public TimeSpan ReconcileInterval { get; set; } = TimeSpan.FromHours(1);
 }

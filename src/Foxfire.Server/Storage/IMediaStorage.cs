@@ -38,6 +38,12 @@ public interface IMediaStorage
     IEnumerable<Guid> ListPublishedVideoIds();
 
     IEnumerable<Guid> ListSourceVideoIds();
+
+    /// <summary>Bytes held by uploads that are still in progress.</summary>
+    long MeasureUploads();
+
+    /// <summary>Bytes held by processing scratch directories.</summary>
+    long MeasureWork();
 }
 
 public readonly record struct VideoFootprint(long OutputBytes, long SourceBytes)

@@ -15,6 +15,8 @@ public static class StorageServiceExtensions
             return new LocalMediaStorage(Path.IsPathRooted(options.Root) ? options.Root : Path.Combine(contentRoot, options.Root));
         });
         services.AddSingleton<IStorageStats, DriveStorageStats>();
+        services.AddSingleton<StorageReconciler>();
+        services.AddHostedService(sp => sp.GetRequiredService<StorageReconciler>());
         services.AddHealthChecks().AddCheck<StorageWritableHealthCheck>("storage", tags: ["ready"]);
 
         return services;

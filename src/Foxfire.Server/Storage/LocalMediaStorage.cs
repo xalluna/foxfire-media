@@ -159,6 +159,10 @@ public sealed partial class LocalMediaStorage : IMediaStorage
 
     public IEnumerable<Guid> ListSourceVideoIds() => ListIds(_sources);
 
+    public long MeasureUploads() => SizeOf(UploadsDirectory);
+
+    public long MeasureWork() => SizeOf(_work);
+
     private static IEnumerable<Guid> ListIds(string parent)
     {
         foreach (var dir in Directory.EnumerateDirectories(parent))

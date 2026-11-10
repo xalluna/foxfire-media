@@ -7,6 +7,7 @@ import { ApplicationsPage } from './pages/ApplicationsPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { Placeholder } from './pages/Placeholder';
 import { ProcessingPage } from './pages/ProcessingPage';
+import { StoragePage } from './pages/StoragePage';
 import { UploadPage } from './pages/UploadPage';
 import { WatchPage } from './pages/WatchPage';
 
@@ -40,7 +41,7 @@ export function App() {
             <Route path="upload" element={<UploadPage />} />
             <Route path="processing" element={<ProcessingPage />} />
             <Route path="applications" element={<ApplicationsPage />} />
-            <Route path="storage" element={<Placeholder title="Storage" />} />
+            <Route path="storage" element={<StoragePage />} />
             <Route path="admins" element={<Placeholder title="Admins" />} />
             <Route path="*" element={<Placeholder title="Not found" />} />
           </Route>

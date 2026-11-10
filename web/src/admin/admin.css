@@ -649,3 +649,63 @@ label {
   font-size: 18px;
   margin-bottom: 4px;
 }
+
+/* ---- storage -------------------------------------------------------------------------- */
+.meter {
+  display: flex;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #e8f0e8;
+}
+
+.meter-media {
+  background: var(--danger);
+}
+
+.meter-other {
+  background: #909090;
+}
+
+.legend {
+  gap: 20px;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+
+.swatch.media {
+  background: var(--danger);
+}
+
+.swatch.other {
+  background: #909090;
+}
+
+.swatch.free {
+  background: #e8f0e8;
+  border: 1px solid #cfd8cf;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.stat {
+  margin-top: 4px;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.low-space {
+  border-color: var(--danger);
+}

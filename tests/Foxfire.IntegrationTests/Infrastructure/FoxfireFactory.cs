@@ -143,6 +143,7 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
             ["Storage:Root"] = StorageRoot,
             ["PublicBaseUrl"] = PublicBaseUrl,
             ["Processing:RetryDelay"] = "00:00:00",
+            ["Storage:ReconcileInterval"] = "30.00:00:00", // tests run the reconciler explicitly (PeriodicTimer caps at ~49 days)
         };
         foreach (var (key, value) in Settings)
         {

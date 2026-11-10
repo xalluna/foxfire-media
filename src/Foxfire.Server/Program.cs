@@ -81,7 +81,8 @@ app.MapAdminUi();
 app.MapAdminApi()
     .MapAdminVideos()
     .MapAdminUploads()
-    .MapAdminApplications();
+    .MapAdminApplications()
+    .MapAdminStorage();
 
 await app.RunAsync();
 
