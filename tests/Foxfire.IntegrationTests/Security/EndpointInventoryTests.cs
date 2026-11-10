@@ -25,6 +25,8 @@ public sealed class EndpointInventoryTests(FoxfireFactory factory) : IClassFixtu
         "GET /embed/{token}",
         "GET /poster/{token}",
         "GET /healthz",
+        "GET /",
+        "GET /admin/{**path}",
         "* /readyz",
         "* /uploads/tus/{TusFileId?}",
         "GET /stream/{token}/{asset}",

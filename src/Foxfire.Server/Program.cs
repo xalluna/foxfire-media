@@ -10,6 +10,7 @@ using Foxfire.Server.Storage;
 using Foxfire.Server.Streaming;
 using Foxfire.Server.Uploads;
 using Foxfire.Server.Videos;
+using Foxfire.Server.Web;
 using Foxfire.Server.Webhooks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -54,6 +55,7 @@ app.UseStatusCodePages();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ApiKeyGuardMiddleware>();
 app.UseUploadEndpointMiddleware();
+app.UseWebAssets();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -71,6 +73,7 @@ app.MapAppApi()
 app.MapTusUploads();
 app.MapStreaming();
 app.MapEmbedPages();
+app.MapAdminUi();
 
 await app.RunAsync();
 
