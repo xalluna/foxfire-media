@@ -3,7 +3,9 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './auth';
 import { Layout } from './Layout';
 import { LoginPage } from './pages/LoginPage';
+import { LibraryPage } from './pages/LibraryPage';
 import { Placeholder } from './pages/Placeholder';
+import { WatchPage } from './pages/WatchPage';
 
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { me, loading } = useAuth();
@@ -30,7 +32,8 @@ export function App() {
               </RequireAdmin>
             }
           >
-            <Route index element={<Placeholder title="Library" />} />
+            <Route index element={<LibraryPage />} />
+            <Route path="watch/:id" element={<WatchPage />} />
             <Route path="upload" element={<Placeholder title="Upload" />} />
             <Route path="processing" element={<Placeholder title="Processing" />} />
             <Route path="applications" element={<Placeholder title="Applications" />} />

@@ -78,7 +78,8 @@ app.MapTusUploads();
 app.MapStreaming();
 app.MapEmbedPages();
 app.MapAdminUi();
-app.MapAdminApi();
+app.MapAdminApi()
+    .MapAdminVideos();
 
 await app.RunAsync();
 
