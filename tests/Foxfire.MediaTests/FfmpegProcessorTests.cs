@@ -69,7 +69,9 @@ public sealed class FfmpegProcessorTests : IDisposable
             null,
             TestContext.Current.CancellationToken,
             captureStdout: true);
-        return result.StandardOutput.Replace("\r", "", StringComparison.Ordinal).Trim();
+        // ffprobe lists HLS streams once per program and once per stream; compare the distinct codecs.
+        return string.Join('\n', result.StandardOutput.Replace("\r", "", StringComparison.Ordinal)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct());
     }
 
     private static void AssertValidHls(string output, string playlist)
