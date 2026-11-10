@@ -218,8 +218,15 @@ public sealed partial class EmbedTests(EmbedFactory factory) : IClassFixture<Emb
         var key = withWeb.AddApp("AppA", origins: ["https://a.example"]);
         var webRoot = Path.Combine(withWeb.StorageRoot + "-web");
         Directory.CreateDirectory(webRoot);
-        await File.WriteAllTextAsync(Path.Combine(webRoot, EmbedAssets.ManifestFileName),
-            """{"src/embed/main.ts":{"file":"assets/embed-abc123.js","css":["assets/embed-def456.css"],"isEntry":true}}""");
+        // The real shape: the player is a chunk shared with the admin console, with its own stylesheet.
+        await File.WriteAllTextAsync(Path.Combine(webRoot, EmbedAssets.ManifestFileName), """
+            {
+              "_player-p1.js": { "file": "assets/player-p1.js", "name": "player", "css": ["assets/player-p2.css"], "imports": ["_hls-h1.js"] },
+              "_hls-h1.js": { "file": "assets/hls-h1.js" },
+              "admin/index.html": { "file": "assets/admin-a1.js", "isEntry": true, "imports": ["_player-p1.js"], "css": ["assets/admin-a2.css"] },
+              "src/embed/main.ts": { "file": "assets/embed-abc123.js", "isEntry": true, "imports": ["_player-p1.js"], "css": ["assets/embed-def456.css"] }
+            }
+            """);
         withWeb.WebRoot = webRoot;
         var video = await withWeb.SeedVideoAsync("AppA", withFiles: true);
         using var app = withWeb.CreateAppClient(key);
@@ -229,6 +236,14 @@ public sealed partial class EmbedTests(EmbedFactory factory) : IClassFixture<Emb
 
         Assert.Contains("<script type=\"module\" src=\"/assets/embed-abc123.js\"></script>", html, StringComparison.Ordinal);
         Assert.Contains("<link rel=\"stylesheet\" href=\"/assets/embed-def456.css\">", html, StringComparison.Ordinal);
+
+        // The shared player stylesheet (which sizes the video to the frame) must be linked too, before the entry's.
+        var playerCss = html.IndexOf("<link rel=\"stylesheet\" href=\"/assets/player-p2.css\">", StringComparison.Ordinal);
+        Assert.True(playerCss >= 0, "the shared player stylesheet is missing");
+        Assert.True(playerCss < html.IndexOf("/assets/embed-def456.css", StringComparison.Ordinal));
+        Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/player-p1.js\">", html, StringComparison.Ordinal);
+        Assert.Contains("<link rel=\"modulepreload\" href=\"/assets/hls-h1.js\">", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("admin", html, StringComparison.Ordinal);
         Directory.Delete(webRoot, recursive: true);
     }
 }

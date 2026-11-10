@@ -213,6 +213,11 @@ public static class EmbedEndpoints
             page.Append("<link rel=\"stylesheet\" href=\"").Append(HtmlEncoder.Default.Encode(style)).Append("\">");
         }
 
+        foreach (var module in assets?.Preloads ?? [])
+        {
+            page.Append("<link rel=\"modulepreload\" href=\"").Append(HtmlEncoder.Default.Encode(module)).Append("\">");
+        }
+
         page.Append("</head><body>").Append(body);
         if (assets?.Script is { } script)
         {
