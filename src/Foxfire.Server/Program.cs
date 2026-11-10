@@ -3,6 +3,7 @@ using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
+using Foxfire.Server.Videos;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -21,6 +22,7 @@ builder.Services.AddFoxfireData();
 builder.Services.AddFoxfireApplications();
 builder.Services.AddFoxfireAuth();
 builder.Services.AddFoxfireStorage();
+builder.Services.AddFoxfireVideos();
 
 var app = builder.Build();
 
@@ -29,6 +31,7 @@ _ = app.Services.GetRequiredService<ApplicationCatalog>();
 _ = app.Services.GetRequiredService<IMediaStorage>(); // creates the storage layout
 await app.Services.MigrateFoxfireDatabaseAsync();
 await app.Services.SyncApplicationsAsync();
+await app.Services.ResumePendingDeletesAsync();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -43,7 +46,8 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
 // Readiness reports only Healthy/Unhealthy — never check details.
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
 
-app.MapAppApi();
+app.MapAppApi()
+    .MapAppVideos();
 
 await app.RunAsync();
 

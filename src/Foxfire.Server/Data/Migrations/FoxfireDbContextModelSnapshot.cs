@@ -90,6 +90,166 @@ namespace Foxfire.Server.Data.Migrations
                     b.ToTable("applications", (string)null);
                 });
 
+            modelBuilder.Entity("Foxfire.Server.Videos.Video", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ApplicationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("application_id");
+
+                    b.Property<string>("AudioCodec")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("audio_codec");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("DeclaredSizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("declared_size_bytes");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)")
+                        .HasColumnName("description");
+
+                    b.Property<long?>("DurationMs")
+                        .HasColumnType("bigint")
+                        .HasColumnName("duration_ms");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("error_message");
+
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("external_id");
+
+                    b.Property<int?>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("original_file_name");
+
+                    b.Property<string>("ProcessingMode")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("processing_mode");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasMaxLength(11)
+                        .HasColumnType("character(11)")
+                        .HasColumnName("public_id")
+                        .IsFixedLength();
+
+                    b.Property<DateTimeOffset?>("ReadyAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ready_at");
+
+                    b.Property<long>("SourceBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("source_bytes");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("status");
+
+                    b.Property<long>("StorageBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("storage_bytes");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("TusFileId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("tus_file_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<DateTimeOffset?>("UploadExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upload_expires_at");
+
+                    b.Property<Guid?>("UploadGrantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("upload_grant_id");
+
+                    b.Property<DateTimeOffset?>("UploadLastActivityAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upload_last_activity_at");
+
+                    b.Property<DateTimeOffset?>("UploadStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upload_started_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<string>("VideoCodec")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("video_codec");
+
+                    b.Property<int?>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_videos");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_videos_public_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_videos_status");
+
+                    b.HasIndex("TusFileId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_videos_tus_file_id")
+                        .HasFilter("tus_file_id IS NOT NULL");
+
+                    b.HasIndex("ApplicationId", "CreatedAt")
+                        .HasDatabaseName("ix_videos_application_id_created_at");
+
+                    b.HasIndex("ApplicationId", "ExternalId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_videos_application_id_external_id")
+                        .HasFilter("external_id IS NOT NULL");
+
+                    b.ToTable("videos", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
@@ -111,6 +271,18 @@ namespace Foxfire.Server.Data.Migrations
                         .HasName("pk_data_protection_keys");
 
                     b.ToTable("data_protection_keys", (string)null);
+                });
+
+            modelBuilder.Entity("Foxfire.Server.Videos.Video", b =>
+                {
+                    b.HasOne("Foxfire.Server.Applications.Application", "Application")
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_videos_applications_application_id");
+
+                    b.Navigation("Application");
                 });
 #pragma warning restore 612, 618
         }
