@@ -6,6 +6,7 @@ using Foxfire.Server.Media;
 using Foxfire.Server.Processing;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
+using Foxfire.Server.Streaming;
 using Foxfire.Server.Uploads;
 using Foxfire.Server.Videos;
 using Foxfire.Server.Webhooks;
@@ -33,6 +34,7 @@ builder.Services.AddFoxfireUploads();
 builder.Services.AddFoxfireMedia();
 builder.Services.AddFoxfireProcessing();
 builder.Services.AddFoxfireWebhooks();
+builder.Services.AddFoxfireStreaming();
 
 var app = builder.Build();
 
@@ -64,6 +66,7 @@ app.MapAppApi()
     .MapAppUploads();
 
 app.MapTusUploads();
+app.MapStreaming();
 
 await app.RunAsync();
 
