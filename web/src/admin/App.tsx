@@ -1,0 +1,45 @@
+import type { ReactNode } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
+import { AuthProvider, useAuth } from './auth';
+import { Layout } from './Layout';
+import { LoginPage } from './pages/LoginPage';
+import { Placeholder } from './pages/Placeholder';
+
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { me, loading } = useAuth();
+  const location = useLocation();
+  if (loading) {
+    return <div className="center muted">Loading…</div>;
+  }
+  if (!me) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
+  return children;
+}
+
+export function App() {
+  return (
+    <BrowserRouter basename="/admin">
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            element={
+              <RequireAdmin>
+                <Layout />
+              </RequireAdmin>
+            }
+          >
+            <Route index element={<Placeholder title="Library" />} />
+            <Route path="upload" element={<Placeholder title="Upload" />} />
+            <Route path="processing" element={<Placeholder title="Processing" />} />
+            <Route path="applications" element={<Placeholder title="Applications" />} />
+            <Route path="storage" element={<Placeholder title="Storage" />} />
+            <Route path="admins" element={<Placeholder title="Admins" />} />
+            <Route path="*" element={<Placeholder title="Not found" />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
