@@ -94,6 +94,9 @@ public sealed partial class UploadSweeper(
             }
         }
 
+        // Finish deletes whose file removal failed earlier (e.g. a file was briefly locked).
+        await deleter.ResumePendingAsync(ct);
+
         var cutoff = now - settings.AbandonedRetention;
         var abandoned = await db.Set<Video>()
             .Where(v => (v.Status == VideoStatus.UploadFailed || v.Status == VideoStatus.UploadExpired) && v.UpdatedAt < cutoff)

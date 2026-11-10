@@ -52,14 +52,14 @@ public sealed partial class VideoDeleter(
             db.Remove(video);
             await db.SaveChangesAsync(ct);
         }
-        catch (IOException ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // Row stays in Deleting (hidden); the next startup retries.
+            // Row stays in Deleting (hidden everywhere); the upload sweeper retries every minute.
             LogRetryLater(logger, video.PublicId, ex);
         }
     }
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not remove files for video {PublicId}; will retry at next startup")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not remove files for video {PublicId}; will retry shortly")]
     private static partial void LogRetryLater(ILogger logger, string publicId, Exception ex);
 }
 

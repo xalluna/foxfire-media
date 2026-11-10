@@ -143,15 +143,32 @@ public sealed partial class LocalMediaStorage : IMediaStorage
         }
     }
 
-    /// <summary>Idempotent: another party (e.g. a finishing worker) may remove the directory first.</summary>
+    /// <summary>
+    /// Idempotent and tolerant of a concurrent remover (e.g. a worker cleaning its scratch directory while
+    /// the video is deleted): "not found" is success, and transient sharing errors are retried briefly.
+    /// </summary>
     private static void DeleteDirectory(string dir)
     {
-        try
+        for (var attempt = 1; ; attempt++)
         {
-            Directory.Delete(dir, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+                return;
+            }
+            catch (DirectoryNotFoundException)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException && attempt < 5)
+            {
+                if (!Directory.Exists(dir))
+                {
+                    return;
+                }
+
+                Thread.Sleep(50 * attempt);
+            }
         }
     }
 
