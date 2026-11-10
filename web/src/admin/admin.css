@@ -645,3 +645,7 @@ label {
   background: var(--danger);
   transition: width 0.2s linear;
 }
+.app-card h2 {
+  font-size: 18px;
+  margin-bottom: 4px;
+}

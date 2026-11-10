@@ -32,8 +32,16 @@ public sealed class SecretLeakTests
             responses += await SecretScan.RenderAsync(wrong);
             using var right = await admin.LoginAsync("root", adminPassword);
             responses += await SecretScan.RenderAsync(right);
-            using var me = await admin.Client.GetAsync("/api/admin/auth/me");
-            responses += await SecretScan.RenderAsync(me);
+            foreach (var path in new[]
+            {
+                "/api/admin/auth/me", "/api/admin/videos", "/api/admin/applications", "/api/admin/applications/AppA/webhooks",
+                "/api/admin/jobs", "/api/admin/application-options",
+            })
+            {
+                using var read = await admin.Client.GetAsync(path);
+                Assert.True(read.IsSuccessStatusCode, path);
+                responses += await SecretScan.RenderAsync(read);
+            }
         }
 
         SecretScan.AssertContainsNone(responses, secrets, "HTTP responses");

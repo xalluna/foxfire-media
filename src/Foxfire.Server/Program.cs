@@ -80,7 +80,8 @@ app.MapEmbedPages();
 app.MapAdminUi();
 app.MapAdminApi()
     .MapAdminVideos()
-    .MapAdminUploads();
+    .MapAdminUploads()
+    .MapAdminApplications();
 
 await app.RunAsync();
 

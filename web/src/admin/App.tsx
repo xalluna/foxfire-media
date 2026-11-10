@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './auth';
 import { Layout } from './Layout';
 import { LoginPage } from './pages/LoginPage';
+import { ApplicationsPage } from './pages/ApplicationsPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { Placeholder } from './pages/Placeholder';
 import { ProcessingPage } from './pages/ProcessingPage';
@@ -38,7 +39,7 @@ export function App() {
             <Route path="watch/:id" element={<WatchPage />} />
             <Route path="upload" element={<UploadPage />} />
             <Route path="processing" element={<ProcessingPage />} />
-            <Route path="applications" element={<Placeholder title="Applications" />} />
+            <Route path="applications" element={<ApplicationsPage />} />
             <Route path="storage" element={<Placeholder title="Storage" />} />
             <Route path="admins" element={<Placeholder title="Admins" />} />
             <Route path="*" element={<Placeholder title="Not found" />} />
