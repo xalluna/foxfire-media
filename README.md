@@ -205,6 +205,34 @@ frame from an origin that isn't allowed.
 You can append `?autoplay=true&muted=true&t=30` to the URL. The URL only needs to be valid when the
 iframe loads, so mint one per page view.
 
+#### Custom player UI
+
+Apps can draw their own controls (seek bar, buttons) and drive the player:
+
+1. Append `?controls=0` to the embed URL. The player then shows only the video.
+2. Copy [`sdk/foxfire-player.js`](sdk/foxfire-player.js) (types in `foxfire-player.d.ts`) into your app.
+
+```js
+import { FoxfirePlayer } from './foxfire-player.js';
+
+const player = new FoxfirePlayer(document.querySelector('iframe'));
+const { duration } = await player.ready;                 // metadata loaded
+player.on('timeupdate', ({ currentTime, buffered }) => updateScrubber(currentTime, duration, buffered));
+await player.seek(42);                                    // seconds
+await player.play();                                      // also pause, setVolume(0-1), setMuted, setPlaybackRate(0.25-4)
+```
+
+**Events:** every event carries the full state (current time, duration, paused/ended/seeking,
+muted, volume, rate and buffered ranges). The events are `ready`, `play`, `pause`, `timeupdate`,
+`seeking`, `seeked`, `progress`, `durationchange`, `ended`, `volumechange`, `ratechange`,
+`waiting` and `error`.
+
+**Security:** the player accepts commands only from its parent window on one of the app's
+`AllowedOrigins`, and sends events only to that origin. The iframe still needs
+`allow="autoplay; fullscreen"`. The stream itself never leaves the iframe.
+
+To try it, open the embed playground's custom-controls page (`/custom?id=…`).
+
 ### 3. Manage
 
 | Endpoint | Purpose |

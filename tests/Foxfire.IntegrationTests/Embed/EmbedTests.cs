@@ -71,11 +71,29 @@ public sealed partial class EmbedTests(EmbedFactory factory) : IClassFixture<Emb
         Assert.Equal(video.Title, boot.Title);
         Assert.True(boot.Autoplay);
         Assert.Equal(30, boot.Start);
+        Assert.True(boot.Controls);
+        Assert.Equal(["https://a.example", "https://www.a.example"], boot.ParentOrigins); // who may drive the player
         Assert.DoesNotContain(factory.AppAKey, html, StringComparison.Ordinal);
 
         // The boot manifest URL really streams.
         using var playlist = await factory.CreateClient().GetAsync(boot.ManifestUrl);
         Assert.Equal(HttpStatusCode.OK, playlist.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("?controls=0", false)]
+    [InlineData("?controls=false", false)]
+    [InlineData("?controls=1", true)]
+    [InlineData("", true)]
+    public async Task Built_in_controls_can_be_hidden_for_apps_with_their_own_ui(string query, bool expected)
+    {
+        var video = await factory.SeedVideoAsync("AppA", withFiles: true);
+        var embed = await MintAsync(factory.AppAKey, video.PublicId);
+
+        var html = await factory.CreateClient().GetStringAsync(PathOf(embed.EmbedUrl) + query);
+        var boot = JsonSerializer.Deserialize<EmbedBoot>(BootPattern().Match(html).Groups[1].Value, new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+        Assert.Equal(expected, boot.Controls);
     }
 
     [Fact]

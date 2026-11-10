@@ -37,7 +37,9 @@ public sealed record EmbedBoot(
     DateTimeOffset ExpiresAt,
     bool Autoplay,
     bool Muted,
-    double Start);
+    double Start,
+    bool Controls,
+    IReadOnlyList<string> ParentOrigins);
 
 /// <summary>
 /// Embedding: an application's backend mints a short-lived signed URL for one of its own videos, and
@@ -107,6 +109,7 @@ public static class EmbedEndpoints
         bool? autoplay,
         bool? muted,
         double? t,
+        string? controls,
         HttpContext context,
         TokenService tokens,
         PlaybackTokens playback,
@@ -158,7 +161,11 @@ public static class EmbedEndpoints
             expires,
             autoplay ?? false,
             muted ?? false,
-            Math.Max(0, t ?? 0));
+            Math.Max(0, t ?? 0),
+            // ?controls=0 hides the built-in controls for apps that drive the player through the postMessage API.
+            Controls: controls is not ("0" or "false"),
+            // Only these origins (the ones allowed to frame the player) may send it commands or receive its events.
+            ParentOrigins: app.AllowedOrigins);
 
         var bootJson = JsonSerializer.Serialize(boot, BootJson);
         return Html(Shell(video.Title, assets, $"<div id=\"player\"></div><script type=\"application/json\" id=\"boot\">{bootJson}</script>", null), 200);

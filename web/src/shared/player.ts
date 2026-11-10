@@ -12,6 +12,8 @@ export interface PlayerSource {
   autoplay?: boolean;
   muted?: boolean;
   start?: number;
+  /** False hides the built-in controls (the embedding app draws its own and uses the postMessage API). */
+  controls?: boolean;
 }
 
 export interface PlayerHandle {
@@ -43,7 +45,7 @@ function tokenOf(url: string): string {
 export function mountPlayer(container: HTMLElement, source: PlayerSource): PlayerHandle {
   const video = document.createElement('video');
   video.className = 'ff-video';
-  video.controls = true;
+  video.controls = source.controls !== false;
   video.playsInline = true;
   video.preload = 'metadata';
   video.title = source.title;
