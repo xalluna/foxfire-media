@@ -1,8 +1,6 @@
 using System.Collections.Frozen;
 using System.Text.RegularExpressions;
 using Foxfire.Server.Security;
-using Microsoft.Extensions.Configuration.CommandLine;
-using Microsoft.Extensions.Configuration.Memory;
 
 namespace Foxfire.Server.Applications;
 
@@ -181,69 +179,28 @@ public sealed partial class ApplicationCatalog
 
     /// <summary>
     /// API keys may only come from environment variables (or in-memory sources used by tests).
-    /// Any key supplied by a configuration file, stream or the command line aborts startup.
+    /// Any key supplied by a configuration file, stream or the command line aborts startup, and an
+    /// ApiKey field on an application entry is refused wherever it comes from.
     /// </summary>
     internal static IEnumerable<string> FindKeysOutsideEnvironment(IConfiguration configuration)
     {
-        foreach (var provider in Flatten(configuration))
+        foreach (var provider in SecretSourceGuard.Providers(configuration))
         {
-            var forbiddenSource = provider is not (Microsoft.Extensions.Configuration.EnvironmentVariables.EnvironmentVariablesConfigurationProvider or MemoryConfigurationProvider)
-                || provider is CommandLineConfigurationProvider;
-
-            var applicationIndexes = provider.GetChildKeys([], ApplicationsSection).Distinct().ToList();
-            foreach (var index in applicationIndexes)
+            foreach (var index in provider.GetChildKeys([], ApplicationsSection).Distinct())
             {
                 if (provider.TryGet($"{ApplicationsSection}:{index}:ApiKey", out _) ||
                     provider.TryGet($"{ApplicationsSection}:{index}:ApiKeys", out _))
                 {
-                    yield return $"{ApplicationsSection}[{index}] contains an ApiKey. API keys must come from the environment (set {ApiKeysSection}__<Name>), never from {Describe(provider)}.";
+                    yield return $"{ApplicationsSection}[{index}] contains an ApiKey. API keys must come from the environment (set {ApiKeysSection}__<Name>), never from {SecretSourceGuard.Describe(provider)}.";
                 }
             }
+        }
 
-            if (!forbiddenSource)
-            {
-                continue;
-            }
-
-            foreach (var section in new[] { ApiKeysSection, SecondaryApiKeysSection })
-            {
-                if (provider.GetChildKeys([], section).Any())
-                {
-                    yield return $"{section} values were found in {Describe(provider)}. API keys must come from the environment.";
-                }
-            }
+        foreach (var violation in SecretSourceGuard.FindViolations(configuration, [ApiKeysSection, SecondaryApiKeysSection]))
+        {
+            yield return violation;
         }
     }
-
-    private static IEnumerable<IConfigurationProvider> Flatten(IConfiguration configuration)
-    {
-        if (configuration is not IConfigurationRoot root)
-        {
-            yield break;
-        }
-
-        foreach (var provider in root.Providers)
-        {
-            if (provider is ChainedConfigurationProvider chained)
-            {
-                foreach (var inner in Flatten(chained.Configuration))
-                {
-                    yield return inner;
-                }
-            }
-            else
-            {
-                yield return provider;
-            }
-        }
-    }
-
-    private static string Describe(IConfigurationProvider provider) => provider switch
-    {
-        FileConfigurationProvider file => $"configuration file '{file.Source.Path}'",
-        CommandLineConfigurationProvider => "the command line",
-        _ => $"configuration source {provider.GetType().Name}",
-    };
 
     private sealed class ApplicationConfig
     {

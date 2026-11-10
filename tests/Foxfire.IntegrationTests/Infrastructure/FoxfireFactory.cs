@@ -21,6 +21,15 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public CapturedLogs Logs { get; } = new();
 
+    public FoxfireFactory()
+    {
+        SigningKey = NewKey();
+        Settings["Signing:Key"] = SigningKey;
+        KnownSecrets.Add(SigningKey);
+    }
+
+    public string SigningKey { get; }
+
     /// <summary>Set before initialization to reuse an existing database (e.g. to simulate a restart).</summary>
     public string ConnectionString { get; set; } = "";
 

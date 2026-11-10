@@ -23,11 +23,13 @@ builder.Services.AddFoxfireApplications();
 builder.Services.AddFoxfireAuth();
 builder.Services.AddFoxfireStorage();
 builder.Services.AddFoxfireVideos();
+builder.Services.AddFoxfireTokens();
 
 var app = builder.Build();
 
 // Fail fast on invalid application / key configuration before touching the database.
 _ = app.Services.GetRequiredService<ApplicationCatalog>();
+_ = app.Services.GetRequiredService<SigningKeys>();
 _ = app.Services.GetRequiredService<IMediaStorage>(); // creates the storage layout
 await app.Services.MigrateFoxfireDatabaseAsync();
 await app.Services.SyncApplicationsAsync();
