@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Foxfire.Server/Foxfire.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Foxfire.IntegrationTests/Foxfire.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Foxfire.Server</RootNamespace>
+    <AssemblyName>Foxfire.Server</AssemblyName>
+    <UserSecretsId>foxfire-media-server</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Foxfire.UnitTests" />
+    <InternalsVisibleTo Include="Foxfire.IntegrationTests" />
+    <InternalsVisibleTo Include="Foxfire.MediaTests" />
+  </ItemGroup>
+
+</Project>
