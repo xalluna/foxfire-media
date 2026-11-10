@@ -1,0 +1,15 @@
+namespace Foxfire.Server.Storage;
+
+public sealed class StorageOptions
+{
+    public const string Section = "Storage";
+
+    /// <summary>Media root. Relative paths resolve against the content root. Docker sets /data/media.</summary>
+    public string Root { get; set; } = "data/media";
+
+    /// <summary>Space kept free beyond what an upload needs before new uploads are refused.</summary>
+    public long ReserveBytes { get; set; } = 1L * 1024 * 1024 * 1024;
+
+    /// <summary>The Storage page warns when free space drops below this percentage of the drive.</summary>
+    public double LowSpaceWarningPercent { get; set; } = 10;
+}

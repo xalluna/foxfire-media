@@ -24,6 +24,26 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Set before initialization to reuse an existing database (e.g. to simulate a restart).</summary>
     public string ConnectionString { get; set; } = "";
 
+    /// <summary>A private media root per factory, deleted on dispose.</summary>
+    public string StorageRoot { get; } = Path.Combine(Path.GetTempPath(), "foxfire-tests", Guid.NewGuid().ToString("N"));
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+        GC.SuppressFinalize(this);
+        try
+        {
+            if (Directory.Exists(StorageRoot))
+            {
+                Directory.Delete(StorageRoot, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            // Best effort; temp directories are disposable.
+        }
+    }
+
     public static string NewKey() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
 
     /// <summary>Declares an application (as appsettings.json would) and its env key. Returns the key.</summary>
@@ -80,6 +100,7 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
             {
                 ["ConnectionStrings:Foxfire"] = ConnectionString,
                 ["Webhooks:AllowHttp"] = "true",
+                ["Storage:Root"] = StorageRoot,
             }));
 
         builder.ConfigureLogging(logging =>

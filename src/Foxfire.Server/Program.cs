@@ -2,6 +2,7 @@ using Foxfire.Server.Applications;
 using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
 using Foxfire.Server.Security;
+using Foxfire.Server.Storage;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -19,11 +20,13 @@ builder.Services.AddProblemDetails();
 builder.Services.AddFoxfireData();
 builder.Services.AddFoxfireApplications();
 builder.Services.AddFoxfireAuth();
+builder.Services.AddFoxfireStorage();
 
 var app = builder.Build();
 
 // Fail fast on invalid application / key configuration before touching the database.
 _ = app.Services.GetRequiredService<ApplicationCatalog>();
+_ = app.Services.GetRequiredService<IMediaStorage>(); // creates the storage layout
 await app.Services.MigrateFoxfireDatabaseAsync();
 await app.Services.SyncApplicationsAsync();
 
