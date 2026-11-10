@@ -13,7 +13,8 @@ public static class PostgresServer
 
     private static async Task<PostgreSqlContainer> StartAsync()
     {
-        var container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+        // Many test hosts run in parallel, each with its own pool and database.
+        var container = new PostgreSqlBuilder("postgres:17-alpine").WithCommand("-c", "max_connections=500").Build();
         try
         {
             await container.StartAsync();
@@ -33,6 +34,9 @@ public static class PostgresServer
         var builder = new NpgsqlConnectionStringBuilder(container.GetConnectionString())
         {
             Database = $"foxfire_test_{Guid.NewGuid():N}",
+            MaxPoolSize = 10,
+            ConnectionIdleLifetime = 10,
+            ConnectionPruningInterval = 5,
         };
         return builder.ConnectionString;
     }

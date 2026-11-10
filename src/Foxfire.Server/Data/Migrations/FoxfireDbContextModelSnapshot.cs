@@ -23,6 +23,65 @@ namespace Foxfire.Server.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Foxfire.Server.Admin.AdminUser", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_login_count");
+
+                    b.Property<bool>("IsBootstrap")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_bootstrap");
+
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login_at");
+
+                    b.Property<DateTimeOffset?>("LockoutUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_until");
+
+                    b.Property<string>("NormalizedUsername")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("normalized_username");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<Guid>("SecurityStamp")
+                        .HasColumnType("uuid")
+                        .HasColumnName("security_stamp");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("username");
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_users");
+
+                    b.HasIndex("NormalizedUsername")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_users_normalized_username");
+
+                    b.ToTable("admin_users", (string)null);
+                });
+
             modelBuilder.Entity("Foxfire.Server.Applications.Application", b =>
                 {
                     b.Property<Guid>("Id")

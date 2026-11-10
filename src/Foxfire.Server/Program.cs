@@ -1,4 +1,5 @@
 using Foxfire.Server;
+using Foxfire.Server.Admin;
 using Foxfire.Server.Applications;
 using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
@@ -38,6 +39,7 @@ builder.Services.AddFoxfireProcessing();
 builder.Services.AddFoxfireWebhooks();
 builder.Services.AddFoxfireStreaming();
 builder.Services.AddFoxfireEmbeds();
+builder.Services.AddFoxfireAdminAuth(builder.Environment);
 
 var app = builder.Build();
 
@@ -49,6 +51,7 @@ _ = app.Services.GetRequiredService<IMediaStorage>(); // creates the storage lay
 await app.Services.MigrateFoxfireDatabaseAsync();
 await app.Services.SyncApplicationsAsync();
 await app.Services.ResumePendingDeletesAsync();
+await app.Services.BootstrapAdminAsync();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -74,6 +77,7 @@ app.MapTusUploads();
 app.MapStreaming();
 app.MapEmbedPages();
 app.MapAdminUi();
+app.MapAdminApi();
 
 await app.RunAsync();
 

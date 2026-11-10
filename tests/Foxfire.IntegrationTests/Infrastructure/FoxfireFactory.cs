@@ -98,6 +98,16 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
         return key;
     }
 
+    /// <summary>Configures the bootstrap admin (as Admin__BootstrapUsername/Password would). Returns the password.</summary>
+    public string AddBootstrapAdmin(string username = "admin", string? password = null)
+    {
+        password ??= "Pw-" + NewKey()[..24];
+        Settings["Admin:BootstrapUsername"] = username;
+        Settings["Admin:BootstrapPassword"] = password;
+        KnownSecrets.Add(password);
+        return password;
+    }
+
     public HttpClient CreateAppClient(string apiKey)
     {
         var client = CreateClient();

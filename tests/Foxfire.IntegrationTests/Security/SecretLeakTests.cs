@@ -19,10 +19,22 @@ public sealed class SecretLeakTests
         await factory.InitializeAsync();
         var keyA = factory.AddApp("AppA", origins: ["https://a.example"], webhookUrl: "https://a.example/hooks", secondaryKey: FoxfireFactory.NewKey());
         factory.AddApp("AppB");
+        var adminPassword = factory.AddBootstrapAdmin("root");
         var wrongKey = FoxfireFactory.NewKey();
         var secrets = factory.KnownSecrets.Append(wrongKey).ToList();
 
         var responses = await Scenario(factory, keyA, wrongKey);
+
+        // Admin sign-in (right and wrong passwords) and admin reads.
+        using (var admin = await AdminSession.StartAsync(factory))
+        {
+            using var wrong = await admin.LoginAsync("root", "Wrong-" + adminPassword);
+            responses += await SecretScan.RenderAsync(wrong);
+            using var right = await admin.LoginAsync("root", adminPassword);
+            responses += await SecretScan.RenderAsync(right);
+            using var me = await admin.Client.GetAsync("/api/admin/auth/me");
+            responses += await SecretScan.RenderAsync(me);
+        }
 
         SecretScan.AssertContainsNone(responses, secrets, "HTTP responses");
         SecretScan.AssertContainsNone(factory.Logs.All, secrets, "logs");
