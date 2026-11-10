@@ -1,0 +1,114 @@
+name: Image
+
+# Builds the server image, runs the end-to-end suite against the composed stack, and only then
+# publishes to GHCR: sha-<short> and edge from main; semver tags and latest from v* tags.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/xalluna/foxfire-media
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: ${{ env.IMAGE }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Start the stack with throwaway secrets
+        run: |
+          key() { openssl rand -base64 48 | tr -d '\n'; }
+          POSTGRES_PASSWORD=$(key); SIGNING=$(key); KEY_A=$(key); KEY_B=$(key)
+          for secret in "$POSTGRES_PASSWORD" "$SIGNING" "$KEY_A" "$KEY_B"; do echo "::add-mask::$secret"; done
+          {
+            echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+            echo "PublicBaseUrl=http://localhost:8080"
+            echo "Signing__Key=$SIGNING"
+            echo "ApiKeys__E2EA=$KEY_A"
+            echo "ApiKeys__E2EB=$KEY_B"
+          } > .env
+          mkdir -p config
+          echo '{"Applications":[{"Name":"E2EA","AllowedOrigins":["https://a.e2e.test"]},{"Name":"E2EB"}]}' > config/appsettings.json
+          {
+            echo "FOXFIRE_E2E_BASEURL=http://localhost:8080"
+            echo "FOXFIRE_E2E_KEY_A=$KEY_A"
+            echo "FOXFIRE_E2E_KEY_B=$KEY_B"
+            echo "FOXFIRE_E2E_CLIP=$PWD/clip.mp4"
+          } >> "$GITHUB_ENV"
+          FOXFIRE_TAG=ci docker compose up -d --no-build
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8080/readyz && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8080/readyz
+
+      - name: Generate a test clip with the image's ffmpeg
+        run: |
+          docker run --rm --user 0 --entrypoint ffmpeg -v "$PWD:/out" "$IMAGE:ci" -hide_banner -loglevel error -y \
+            -f lavfi -i testsrc2=duration=20:size=1280x720:rate=30 -f lavfi -i sine=frequency=440:duration=20 \
+            -c:v libx264 -preset ultrafast -pix_fmt yuv420p -g 60 -c:a aac -shortest /out/clip.mp4
+
+      - name: End-to-end tests
+        run: dotnet test --project tests/Foxfire.E2E -c Release
+
+      - name: Server logs
+        if: failure()
+        run: docker compose logs server
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,prefix=sha-
+            type=edge,branch=main
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
