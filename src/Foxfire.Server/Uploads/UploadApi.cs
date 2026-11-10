@@ -33,6 +33,22 @@ public static class UploadApi
         TimeProvider time,
         CancellationToken ct)
     {
+        var app = await db.Set<Application>().SingleAsync(a => a.Id == user.GetApplicationId(), ct);
+        return await CreateForAsync(app, request, "app", db, grants, disk, options, time, ct);
+    }
+
+    /// <summary>Shared by the app API and the admin console (which uploads on behalf of a chosen application).</summary>
+    internal static async Task<IResult> CreateForAsync(
+        Application app,
+        CreateUploadRequest request,
+        string createdBy,
+        FoxfireDbContext db,
+        UploadGrants grants,
+        DiskSpaceGuard disk,
+        IOptions<UploadOptions> options,
+        TimeProvider time,
+        CancellationToken ct)
+    {
         var errors = new Dictionary<string, string[]>();
         if (VideoRules.ValidateTitle(request.Title) is { } titleError)
         {
@@ -69,7 +85,6 @@ public static class UploadApi
             return InsufficientStorage();
         }
 
-        var app = await db.Set<Application>().SingleAsync(a => a.Id == user.GetApplicationId(), ct);
         if (request.ExternalId is not null &&
             await db.Set<Video>().AnyAsync(v => v.ApplicationId == app.Id && v.ExternalId == request.ExternalId, ct))
         {
@@ -88,7 +103,7 @@ public static class UploadApi
             Description = request.Description,
             OriginalFileName = SanitizeFileName(request.Filename!),
             DeclaredSizeBytes = request.SizeBytes,
-            CreatedBy = "app",
+            CreatedBy = createdBy,
             CreatedAt = now,
             UpdatedAt = now,
         };

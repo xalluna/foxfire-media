@@ -5,6 +5,8 @@ import { Layout } from './Layout';
 import { LoginPage } from './pages/LoginPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { Placeholder } from './pages/Placeholder';
+import { ProcessingPage } from './pages/ProcessingPage';
+import { UploadPage } from './pages/UploadPage';
 import { WatchPage } from './pages/WatchPage';
 
 function RequireAdmin({ children }: { children: ReactNode }) {
@@ -34,8 +36,8 @@ export function App() {
           >
             <Route index element={<LibraryPage />} />
             <Route path="watch/:id" element={<WatchPage />} />
-            <Route path="upload" element={<Placeholder title="Upload" />} />
-            <Route path="processing" element={<Placeholder title="Processing" />} />
+            <Route path="upload" element={<UploadPage />} />
+            <Route path="processing" element={<ProcessingPage />} />
             <Route path="applications" element={<Placeholder title="Applications" />} />
             <Route path="storage" element={<Placeholder title="Storage" />} />
             <Route path="admins" element={<Placeholder title="Admins" />} />
