@@ -67,7 +67,14 @@ public sealed class TokenService
         return $"{Prefix}{Base64Url.EncodeToString(payload)}.{Base64Url.EncodeToString(mac[..MacBytes])}";
     }
 
-    public bool TryValidate(TokenPurpose purpose, string? token, out TokenClaims claims)
+    public bool TryValidate(TokenPurpose purpose, string? token, out TokenClaims claims) =>
+        TryValidate(purpose, token, ignoreExpiry: false, out claims);
+
+    /// <param name="ignoreExpiry">
+    /// Only for an upload token that has already been consumed: its expiry bounds when an upload may
+    /// <em>start</em>; continuing it is governed by the database (bound file id, idle and duration limits).
+    /// </param>
+    public bool TryValidate(TokenPurpose purpose, string? token, bool ignoreExpiry, out TokenClaims claims)
     {
         claims = default!;
         if (string.IsNullOrEmpty(token) || token.Length > MaxTokenLength || !token.StartsWith(Prefix, StringComparison.Ordinal))
@@ -113,7 +120,7 @@ public sealed class TokenService
         }
 
         var parsed = Read(payload);
-        if (parsed.ExpiresAt <= _time.GetUtcNow())
+        if (!ignoreExpiry && parsed.ExpiresAt <= _time.GetUtcNow())
         {
             return false;
         }

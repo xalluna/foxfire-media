@@ -28,5 +28,9 @@ dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 dotnet_naming_style.underscore_camel.required_prefix = _
 dotnet_naming_style.underscore_camel.capitalization = camel_case
 
+[tests/**.cs]
+# Passing TestContext.Current.CancellationToken everywhere is noise in short integration tests.
+dotnet_diagnostic.xUnit1051.severity = suggestion
+
 [**/Migrations/*.cs]
 generated_code = true

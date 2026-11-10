@@ -1,8 +1,13 @@
 using System.Security.Cryptography;
+using Foxfire.Server.Storage;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Foxfire.IntegrationTests.Infrastructure;
 
@@ -29,6 +34,13 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     public string SigningKey { get; }
+
+    /// <summary>Server clock. Starts at real "now" and only moves when a test advances it.</summary>
+    public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
+
+    public FakeStorageStats Disk { get; } = new();
+
+    public const string PublicBaseUrl = "http://foxfire.test";
 
     /// <summary>Set before initialization to reuse an existing database (e.g. to simulate a restart).</summary>
     public string ConnectionString { get; set; } = "";
@@ -110,7 +122,16 @@ public class FoxfireFactory : WebApplicationFactory<Program>, IAsyncLifetime
                 ["ConnectionStrings:Foxfire"] = ConnectionString,
                 ["Webhooks:AllowHttp"] = "true",
                 ["Storage:Root"] = StorageRoot,
+                ["PublicBaseUrl"] = PublicBaseUrl,
             }));
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Time);
+            services.RemoveAll<IStorageStats>();
+            services.AddSingleton<IStorageStats>(Disk);
+        });
 
         builder.ConfigureLogging(logging =>
         {

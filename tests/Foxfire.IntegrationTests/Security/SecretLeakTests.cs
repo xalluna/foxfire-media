@@ -56,6 +56,19 @@ public sealed class SecretLeakTests
         bearer.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", validKey);
         await Send(bearer, "/api/v1/me");
 
+        // Upload flow: the upload token is handed to the app by design, but must never be logged.
+        var ticket = await TusClient.MintAsync(valid, sizeBytes: 10);
+        var tus = new TusClient(factory.CreateClient(), ticket.UploadToken);
+        var location = await tus.CreateOrThrowAsync(10);
+        using (var patch = await tus.PatchAsync(location, 0, new byte[10]))
+        {
+            rendered.Add(await SecretScan.RenderAsync(patch));
+        }
+
+        SecretScan.AssertContainsNone(factory.Logs.All, [ticket.UploadToken], "logs (upload token)");
+
+        await Send(valid, "/api/v1/videos");
+
         return string.Join('\n', rendered);
     }
 }

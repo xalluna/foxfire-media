@@ -1,8 +1,10 @@
+using Foxfire.Server;
 using Foxfire.Server.Applications;
 using Foxfire.Server.Auth;
 using Foxfire.Server.Data;
 using Foxfire.Server.Security;
 using Foxfire.Server.Storage;
+using Foxfire.Server.Uploads;
 using Foxfire.Server.Videos;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -24,12 +26,14 @@ builder.Services.AddFoxfireAuth();
 builder.Services.AddFoxfireStorage();
 builder.Services.AddFoxfireVideos();
 builder.Services.AddFoxfireTokens();
+builder.Services.AddFoxfireUploads();
 
 var app = builder.Build();
 
-// Fail fast on invalid application / key configuration before touching the database.
+// Fail fast on invalid configuration before touching the database.
 _ = app.Services.GetRequiredService<ApplicationCatalog>();
 _ = app.Services.GetRequiredService<SigningKeys>();
+_ = app.Services.GetRequiredService<PublicUrls>();
 _ = app.Services.GetRequiredService<IMediaStorage>(); // creates the storage layout
 await app.Services.MigrateFoxfireDatabaseAsync();
 await app.Services.SyncApplicationsAsync();
@@ -39,6 +43,7 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseMiddleware<ApiKeyGuardMiddleware>();
+app.UseUnlimitedBodyForUploads();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -49,7 +54,10 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
 app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
 
 app.MapAppApi()
-    .MapAppVideos();
+    .MapAppVideos()
+    .MapAppUploads();
+
+app.MapTusUploads();
 
 await app.RunAsync();
 
