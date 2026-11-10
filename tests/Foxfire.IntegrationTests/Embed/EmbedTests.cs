@@ -217,8 +217,8 @@ public sealed partial class EmbedTests(EmbedFactory factory) : IClassFixture<Emb
         await withWeb.InitializeAsync();
         var key = withWeb.AddApp("AppA", origins: ["https://a.example"]);
         var webRoot = Path.Combine(withWeb.StorageRoot + "-web");
-        Directory.CreateDirectory(Path.Combine(webRoot, ".vite"));
-        await File.WriteAllTextAsync(Path.Combine(webRoot, ".vite", "manifest.json"),
+        Directory.CreateDirectory(webRoot);
+        await File.WriteAllTextAsync(Path.Combine(webRoot, EmbedAssets.ManifestFileName),
             """{"src/embed/main.ts":{"file":"assets/embed-abc123.js","css":["assets/embed-def456.css"],"isEntry":true}}""");
         withWeb.WebRoot = webRoot;
         var video = await withWeb.SeedVideoAsync("AppA", withFiles: true);

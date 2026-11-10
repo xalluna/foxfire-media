@@ -13,16 +13,19 @@ public static class EmbedServiceExtensions
 }
 
 /// <summary>
-/// Locates the hashed embed-player bundle through Vite's build manifest (wwwroot/.vite/manifest.json).
+/// Locates the hashed embed-player bundle through Vite's build manifest (wwwroot/build-manifest.json).
 /// When no web build is present (e.g. tests) the page renders without the player script.
 /// </summary>
 public sealed class EmbedAssets
 {
     public const string EntryName = "src/embed/main.ts";
 
+    /// <summary>Written by Vite (build.manifest) at the web root; read here, never served.</summary>
+    public const string ManifestFileName = "build-manifest.json";
+
     public EmbedAssets(IWebHostEnvironment environment)
     {
-        var manifest = environment.WebRootPath is { } root ? Path.Combine(root, ".vite", "manifest.json") : null;
+        var manifest = environment.WebRootPath is { } root ? Path.Combine(root, ManifestFileName) : null;
         if (manifest is null || !File.Exists(manifest))
         {
             return;

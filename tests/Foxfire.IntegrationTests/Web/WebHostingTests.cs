@@ -11,10 +11,9 @@ public sealed class FakeWebRootFactory : FoxfireFactory
         WebRoot = StorageRoot + "-web";
         Directory.CreateDirectory(Path.Combine(WebRoot, "admin"));
         Directory.CreateDirectory(Path.Combine(WebRoot, "assets"));
-        Directory.CreateDirectory(Path.Combine(WebRoot, ".vite"));
         File.WriteAllText(Path.Combine(WebRoot, "admin", "index.html"), "<!doctype html><div id=\"root\"></div>");
         File.WriteAllText(Path.Combine(WebRoot, "assets", "admin-abc123.js"), "console.log('admin')");
-        File.WriteAllText(Path.Combine(WebRoot, ".vite", "manifest.json"), "{}");
+        File.WriteAllText(Path.Combine(WebRoot, "build-manifest.json"), "{}");
         File.WriteAllText(Path.Combine(WebRoot, "secret.txt"), "not public");
     }
 
@@ -61,7 +60,8 @@ public sealed class WebHostingTests(FakeWebRootFactory factory) : IClassFixture<
     }
 
     [Theory]
-    [InlineData("/.vite/manifest.json")]
+    [InlineData("/build-manifest.json")]
+    [InlineData("/assets/../build-manifest.json")]
     [InlineData("/secret.txt")]
     [InlineData("/admin/index.html/../../secret.txt")]
     [InlineData("/assets/../secret.txt")]

@@ -12,7 +12,8 @@ export default defineConfig({
   build: {
     outDir: resolve(import.meta.dirname, '../src/Foxfire.Server/wwwroot'),
     emptyOutDir: true,
-    manifest: true,
+    // Not under .vite/: dotnet publish skips dot-folders. The server reads it; it is never served.
+    manifest: 'build-manifest.json',
     assetsDir: 'assets',
     sourcemap: false,
     rollupOptions: {
